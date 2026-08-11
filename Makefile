@@ -1,4 +1,4 @@
-.PHONY: run run-admin build test tidy fmt vet clean
+.PHONY: run run-admin build test tidy fmt vet clean db-up db-down db-drop
 
 BIN_DIR := bin
 
@@ -26,3 +26,12 @@ vet:
 
 clean:
 	rm -rf $(BIN_DIR)
+
+db-up:
+	podman-compose up -d
+
+db-down:
+	podman-compose down
+
+db-drop:
+	podman-compose down -v

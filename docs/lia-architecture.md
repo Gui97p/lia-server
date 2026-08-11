@@ -418,7 +418,7 @@ TTS recebe texto completo e gera áudio de uma vez. Streaming de texto conflita 
 
 ## Transporte
 
-Protocolo ainda em aberto (Socket.IO vs alternativas). O que está decidido é que a comunicação é bidirecional e persistente — não HTTP puro.
+Protocolo definido: WebSocket puro (`nhooyr.io/websocket` no server), com mensagens em JSON (`event`/`payload`) definidas pelo próprio projeto. Descartado Socket.IO — suporte de terceiros imaturo tanto em Go (server) quanto em Rust (clients), risco alto pra dependência de longo prazo. A comunicação é bidirecional e persistente — não HTTP puro.
 
 Rotas HTTP permanecem para operações pontuais:
 - `POST /auth/login`
@@ -541,7 +541,6 @@ Estas perguntas serão respondidas pelos casos de uso, não antecipadamente:
 - Estrutura exata do Workflow
 - Como memória é consultada durante planejamento
 - Event Bus — implementação
-- Protocolo de transporte (Socket.IO vs alternativas)
 - Retry policy
 - Cancelamento distribuído
 - Persistência e recuperação de tasks após reboot
