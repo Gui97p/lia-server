@@ -40,6 +40,26 @@ type Step struct {
 
 Campos serão adicionados conforme necessidade real aparecer (princípio "casos primeiro") — não antecipar campos que nenhum caso de uso ainda pede.
 
+### Referência a resultado de outro step (`$fromStep`)
+
+Um parâmetro de step pode não ter valor literal disponível no momento do planejamento — só existe depois que outro step roda (ex: `moveWindow` precisa do identificador de uma janela que só `activeWindows` consegue informar, em runtime). Isso independe de o workflow ser sequencial ou DAG — mesmo um workflow linear de 2 steps já precisa disso.
+
+O Planner expressa isso como uma referência simbólica em vez de um valor literal:
+
+```json
+{
+  "id": "step-2",
+  "capability": "moveWindow",
+  "params": {
+    "window": { "$fromStep": "step-1", "match": { "app": "discord" } },
+    "monitor": 2
+  },
+  "dependsOn": ["step-1"]
+}
+```
+
+Antes de disparar o step, o Executor resolve `$fromStep`: pega o resultado do step referenciado, aplica o filtro de `match` (igualdade exata em campo estruturado, nunca correspondência aproximada de texto) e substitui pelo valor real. Se o filtro encontrar exatamente um resultado, segue normalmente. **Zero ou múltiplos resultados** não é adivinhado pelo Executor — é tratado como falha sem retry, que escala para Replanning (ver [Tasks e Eventos](tasks-and-events.md)), podendo virar uma pergunta de desambiguação ao usuário.
+
 ### Sequencial agora, DAG depois
 
 Por ora, workflows são listas lineares de steps (`DependsOn` vazio, execução em ordem). DAG (steps paralelos, dependências não-lineares) é a evolução natural — necessário a partir do caso de uso 3 do roadmap ("baixe o relatório, analise, compare"), quando houver necessidade real de paralelismo.

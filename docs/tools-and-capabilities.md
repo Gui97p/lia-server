@@ -70,7 +70,15 @@ Esse formato é próximo do que APIs de function-calling de LLM (incluindo a Gro
 
 Alguns parâmetros não têm enum estático nem estado consultável isoladamente — o valor válido depende do resultado de **outra** capability (ex: `moveWindow` recebe `window`, mas os nomes de janela válidos só existem chamando `activeWindows` primeiro). Isso é indicado no catálogo com `"source": "<nomeDaCapability>"` no lugar do enum.
 
-Isso não exige nenhum mecanismo novo de execução — é o mesmo problema que o caso de uso 3 do roadmap já força a resolver ("baixe o relatório, compare com o anterior"): um step do Workflow usa o resultado de outro step. `moveWindow` vira dois steps no plano do Planner: um step chamando `activeWindows` (sem parâmetro), e um segundo step chamando `moveWindow` com `window` preenchido a partir do resultado do primeiro, e `DependsOn` apontando para ele (ver [Planner e Executor](planner-and-executor.md#estrutura-do-workflow)). O `source` no catálogo é só a pista que evita o Planner alucinar um valor em vez de gerar o step de descoberta.
+Isso não exige nenhum mecanismo novo de execução — é o mesmo problema que o caso de uso 3 do roadmap já força a resolver ("baixe o relatório, compare com o anterior"): um step do Workflow usa o resultado de outro step. `moveWindow` vira dois steps no plano do Planner: um step chamando `activeWindows` (sem parâmetro), e um segundo step chamando `moveWindow` com `window` preenchido a partir do resultado do primeiro, e `DependsOn` apontando para ele (ver [`$fromStep` em Planner e Executor](planner-and-executor.md#referência-a-resultado-de-outro-step-fromstep)). O `source` no catálogo é só a pista que evita o Planner alucinar um valor em vez de gerar o step de descoberta.
+
+### Identificação de janelas: nomenclatura canônica
+
+O resultado de `activeWindows` precisa expor um campo `app` estruturado (não só o título cru da janela), para que o `match` do `$fromStep` seja uma igualdade exata em vez de uma correspondência aproximada de texto — nomes de processo variam por plataforma e por versão (`Discord.exe`, `DiscordUpdater`, `discordCanary`, etc.), e correspondência aproximada arrisca casar o processo errado silenciosamente.
+
+O client já mantém, para implementar `openApp`, uma tabela de nome canônico → identificador real do processo/bundle para cada app do enum (é o mínimo necessário para saber o que executar quando pedem `openApp("discord")`). `activeWindows` reaproveita essa mesma tabela na direção inversa: para cada janela do sistema, verifica se o processo bate com algum identificador conhecido e, se sim, popula `app` com o nome canônico correspondente (o mesmo nome usado no enum de `openApp`). Processos que não correspondem a nenhum app conhecido simplesmente não recebem `app` — não são adivinhados por aproximação.
+
+Consequência: o universo de apps identificáveis em `activeWindows` é o mesmo (finito, já curado) enum de `openApp` — não é necessário reconhecer todo processo do sistema operacional, só os que o client já sabe abrir.
 
 ## Protocolo de anúncio: handshake da conexão
 
