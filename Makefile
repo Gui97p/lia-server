@@ -1,6 +1,17 @@
-.PHONY: run run-admin build test tidy fmt vet clean db-up db-down db-drop
+.PHONY: run run-admin build test tidy fmt vet clean db-up db-down db-drop migrate-up migrate-down migrate-create
+
+-include .env
+export
 
 BIN_DIR := bin
+
+ifneq ($(shell command -v podman-compose 2>/dev/null),)
+COMPOSE := podman-compose
+else ifneq ($(shell command -v docker-compose 2>/dev/null),)
+COMPOSE := docker-compose
+else
+COMPOSE := docker compose
+endif
 
 run:
 	go run ./cmd/server
@@ -28,10 +39,19 @@ clean:
 	rm -rf $(BIN_DIR)
 
 db-up:
-	podman-compose up -d
+	$(COMPOSE) up -d
 
 db-down:
-	podman-compose down
+	$(COMPOSE) down
 
 db-drop:
-	podman-compose down -v
+	$(COMPOSE) down -v
+
+migrate-create:
+	migrate create -ext sql -dir migrations -seq $(name)
+
+migrate-up:
+	migrate -database "$(DATABASE_URL)" -path migrations up
+
+migrate-down:
+	migrate -database "$(DATABASE_URL)" -path migrations down 1

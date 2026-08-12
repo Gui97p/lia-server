@@ -12,15 +12,44 @@ Projeto pessoal, de uso interno, em fase inicial de descoberta de arquitetura at
 - **PostgreSQL** — banco principal
 - **WebSocket** — transporte bidirecional persistente com os clients
 
+## Configurando em uma nova máquina
+
+Pré-requisitos, do zero:
+
+1. **Go** (via tarball oficial, não `apt` — evita versão desatualizada):
+   ```bash
+   curl -LO https://go.dev/dl/go1.26.5.linux-amd64.tar.gz
+   sudo rm -rf /usr/local/go && sudo tar -C /usr/local -xzf go1.26.5.linux-amd64.tar.gz
+   echo 'export PATH=$PATH:/usr/local/go/bin:$HOME/go/bin' >> ~/.bashrc
+   source ~/.bashrc
+   ```
+2. **Podman + podman-compose** (ou Docker — o `docker-compose.yml` funciona com ambos):
+   ```bash
+   sudo apt install podman podman-compose   # Ubuntu
+   sudo dnf install podman podman-compose   # Fedora
+   ```
+3. **`golang-migrate` CLI:**
+   ```bash
+   go install -tags 'postgres' github.com/golang-migrate/migrate/v4/cmd/migrate@latest
+   ```
+4. **Clonar o repo** (precisa de chave SSH cadastrada no GitHub, ou usar HTTPS):
+   ```bash
+   git clone git@github.com:Gui97p/lia-server.git
+   ```
+5. **Recriar o `.env`** — está no `.gitignore` de propósito (tem segredos), então não vem no clone:
+   ```bash
+   cp .env.example .env   # ajustar valores conforme necessário
+   ```
+
 ## Desenvolvimento
 
 ```bash
-cp .env.example .env   # ajustar valores conforme necessário
-make db-up             # sobe o Postgres local (Podman/Docker Compose)
-make run                # roda o server
+make db-up          # sobe o Postgres local
+make migrate-up      # aplica as migrations pendentes
+make run             # roda o server
 ```
 
-Outros comandos disponíveis no `Makefile` (`make build`, `make test`, `make db-down`, `make db-drop`, etc.).
+Outros comandos disponíveis no `Makefile` (`make build`, `make test`, `make db-down`, `make db-drop`, `make migrate-down`, `make migrate-create name=...`, etc.).
 
 ## Documentação
 
