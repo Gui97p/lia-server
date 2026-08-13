@@ -46,6 +46,21 @@ func (s *PostgresStore) GetByUsername(ctx context.Context, username string) (*Us
 	return &u, nil
 }
 
+func (s *PostgresStore) GetByID(ctx context.Context, userId uuid.UUID) (*User, error) {
+	var u User
+	err := s.pool.QueryRow(ctx,
+		`SELECT id, username, groq_api_key_encrypted, token_version, created_at, updated_at FROM users WHERE id = $1`,
+		userId,
+	).Scan(&u.ID, &u.Username, &u.GroqAPIKeyEncrypted, &u.TokenVersion, &u.CreatedAt, &u.UpdatedAt)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, ErrNotFound
+		}
+		return nil, err
+	}
+	return &u, nil
+}
+
 func (s *PostgresStore) SetGroqAPIKey(ctx context.Context, userID uuid.UUID, encryptedKey string) error {
 	tag, err := s.pool.Exec(ctx,
 		`UPDATE users SET groq_api_key_encrypted = $1 WHERE id = $2`,
