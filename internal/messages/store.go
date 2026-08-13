@@ -2,14 +2,10 @@ package messages
 
 import (
 	"context"
-	"errors"
 	"time"
 
 	"github.com/google/uuid"
 )
-
-var ErrNotFound = errors.New("message not found")
-var ErrUserNotFound = errors.New("user not found")
 
 type Message struct {
 	ID        uuid.UUID
