@@ -1,4 +1,4 @@
-.PHONY: run run-admin build test tidy fmt vet clean db-up db-down db-drop migrate-up migrate-down migrate-create
+.PHONY: run run-admin build test tidy fmt vet clean db-up db-down db-drop migrate-up migrate-down migrate-create migrate-force migrate-reset
 
 -include .env
 export
@@ -55,3 +55,9 @@ migrate-up:
 
 migrate-down:
 	migrate -database "$(DATABASE_URL)" -path migrations down 1
+
+migrate-force:
+	migrate -database "$(DATABASE_URL)" -path migrations force $(version)
+
+migrate-reset:
+	$(COMPOSE) exec postgres psql -U $(POSTGRES_USER) -d $(POSTGRES_DB) -c "DROP TABLE IF EXISTS schema_migrations;"
