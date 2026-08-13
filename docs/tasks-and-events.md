@@ -99,6 +99,25 @@ Executor analisa
                usuário precisa intervir
 ```
 
+## Autorização de Tasks sem sessão viva
+
+Todo o modelo de identidade (ver [Identidade, Autenticação e Secrets](identity-auth-and-secrets.md)) pressupõe uma sessão viva — um JWT, um device conectado. Isso não existe para uma Task disparada por agendamento ("toda sexta faça backup") ou por evento externo ("porta aberta há 5 minutos"). Sem sessão, não há `trust_level` nem `device_id` pra consultar.
+
+Toda Task carrega um `trigger_type` e um snapshot congelado de autorização, capturado no momento em que a Task foi criada (não uma referência a uma sessão que pode nem existir mais quando a Task rodar):
+
+```sql
+tasks (
+  ...,
+  trigger_type,             -- 'user' | 'scheduled' | 'event'
+  authorized_trust_level,   -- trust level do usuário no momento em que a Task foi configurada/criada
+  ...
+)
+```
+
+- `trigger_type: user` — origem é uma sessão viva, comportamento já descrito no resto da documentação.
+- `trigger_type: scheduled` — proveniência `agendado` (ver [Memória: proveniência](memory.md#proveniência-e-segurança-contra-prompt-injection)). O usuário autorizou isso com antecedência; a Task pode executar ações sensíveis sem confirmação ao vivo, já que esse é o próprio propósito de agendar algo pra rodar sem ninguém por perto. Antes de executar, o Executor revalida que a autorização daquele usuário ainda é válida (equivalente ao `token_version` — se a conta foi revogada entre o agendamento e a execução, a Task não roda mesmo estando pronta).
+- `trigger_type: event` — proveniência `evento`. A condição de disparo vem de um sinal externo (sensor, estado do ambiente), não de um comando ao vivo nem de uma janela de tempo que o usuário está presente. Se o efeito é só notificação, sem confirmação. Se o efeito é uma ação física automática a partir só do evento, aplica-se a mesma cautela de `memoria_injetada` — confirmação explícita antes de agir.
+
 ## Recuperação após reboot
 
 Reiniciar o servidor com uma Task em `RUNNING` é um caso trivial de acontecer — a Task deve ir para `FAILED` ou `BLOCKED`, nunca ser retomada automaticamente. Retomar uma ação que pode ter efeito no mundo real (trancar porta, etc.) sem confirmação é arriscado demais, especialmente considerando o cenário abaixo.

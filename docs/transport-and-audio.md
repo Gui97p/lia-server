@@ -56,6 +56,8 @@ Microfone → VAD → Wake Word (local) → captura áudio
 → client recebe bytes e reproduz
 ```
 
+Esse fluxo mostra um `speak` no fim, mas a fala é uma capability executada pelo Executor como qualquer outra (ver [`speak` como capability](tools-and-capabilities.md#speak-como-capability)) — pode aparecer intercalada com outras tools dentro do mesmo Workflow, não só como resposta final única.
+
 ### Wake Word
 
 Modelo `hey_lia.onnx` treinado via OpenWakeWord. Inferência local no client — zero latência de rede para detecção.
@@ -63,3 +65,9 @@ Modelo `hey_lia.onnx` treinado via OpenWakeWord. Inferência local no client —
 ### Sem streaming de áudio por agora
 
 TTS recebe texto completo e gera áudio de uma vez. Streaming de texto conflita com entonação natural do TTS — prioridade para qualidade de voz. Revisitar quando necessário.
+
+### Interação sem repetir a wake word
+
+A wake word não precisa ser repetida a cada turno — ela inicia uma sessão de interação (`IDLE` → `ACTIVE` → `IDLE`), e turnos seguintes dentro da janela ativa não exigem reativação. Isso é majoritariamente responsabilidade do Client (VAD, estado de sessão, proximidade do dispositivo já são responsabilidades dele nesta mesma tabela) — fica registrado aqui para quando esse trabalho começar, sem desenho detalhado ainda.
+
+Vale reforçar o mesmo princípio já estabelecido em [Identidade, Autenticação e Secrets](identity-auth-and-secrets.md): detectar que alguém está falando com a Lia (perceber a sessão ativa) não é o mesmo que autorizar uma ação — a camada de percepção (sessão de interação) permanece independente da camada de autorização.

@@ -46,7 +46,15 @@ A defesa não é pedir confirmação do usuário toda vez que uma tool sensível
 
 - `comando_direto` — o usuário pediu isso agora, na mensagem/fala atual.
 - `memoria_injetada` — a justificativa vem de uma memória GROUP/GLOBAL no contexto, não de um pedido direto do usuário nesta interação.
+- `agendado` — a Task foi configurada com antecedência pelo próprio usuário (ver [Tasks e Eventos](tasks-and-events.md#autorização-de-tasks-sem-sessão-viva)) para rodar sem sessão viva.
+- `evento` — a Task foi disparada por uma condição externa (sensor, estado do ambiente) que o usuário configurou, mas sem comando ao vivo no momento do disparo.
 
-Regra de segurança: **tools com efeito físico/irreversível (ver [matriz de capability × trust level](identity-auth-and-secrets.md)) só executam sem confirmação quando a proveniência é `comando_direto`.** Se o Planner decidir executar algo sensível cuja justificativa é `memoria_injetada`, aí sim é exigida confirmação explícita — que é justamente o caso raro onde prompt injection se manifestaria, não o caminho comum de uso.
+Regra de segurança: **tools com efeito físico/irreversível (ver [matriz de capability × trust level](identity-auth-and-secrets.md)) só executam sem confirmação quando a proveniência é `comando_direto` ou `agendado`** — nos dois casos, o usuário já deu autorização explícita (agora, ou com antecedência ao configurar). `memoria_injetada` e `evento` exigem confirmação explícita antes de executar algo sensível — são os casos onde a justificativa não veio de uma ação direta e deliberada do usuário neste momento.
 
 Isso ainda depende de definir, na implementação do Planner, como a proveniência é rastreada e anexada a cada step do Workflow (ver [Planner e Executor](planner-and-executor.md)).
+
+## Regras de comportamento não são memória
+
+Regras que ditam como a Lia deve se comportar (tom, tamanho de resposta, princípios de conduta) **não são fatos editáveis via `saveMemory`/`updateMemory`** — se fossem, uma regra maliciosa injetada por uma memória GROUP/GLOBAL teria ainda mais garantia de influenciar o Planner do que um fato comum, já que regras de comportamento tendem a ser sempre carregadas no contexto.
+
+Essas regras vivem numa tabela separada, `behavior_rules` (ver [Banco de Dados](database.md)), editável **apenas** via `lia-admin`/rota administrativa protegida — nunca pelas tools de memória, nunca influenciada por conteúdo injetado. `memories` continua cobrindo fatos e preferências (USER/GROUP/GLOBAL/PRIVATE); `behavior_rules` cobre só a configuração de comportamento da própria Lia, que só o usuário edita diretamente.

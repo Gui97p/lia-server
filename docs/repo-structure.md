@@ -32,6 +32,7 @@ lia-server/
 │   └── tasks/
 │       └── state.go
 ├── docs/                     # esta documentação
+├── migrations/               # SQL versionado (golang-migrate)
 ├── docker-compose.yml        # Postgres local
 ├── Makefile
 ├── go.mod

@@ -80,6 +80,16 @@ O client já mantém, para implementar `openApp`, uma tabela de nome canônico �
 
 Consequência: o universo de apps identificáveis em `activeWindows` é o mesmo (finito, já curado) enum de `openApp` — não é necessário reconhecer todo processo do sistema operacional, só os que o client já sabe abrir.
 
+## `speak` como capability
+
+A comunicação da Lia (fala, e futuramente `display`/`notify`) é uma capability como qualquer outra, executada pelo Executor através do mesmo ciclo de vida de tool já documentado (`tool.request` → `tool.completed`) — não um efeito implícito da resposta da LLM. Isso permite intercalar fala com outras ações no mesmo Workflow (ex: `speak("vou verificar a disponibilidade")` → `makePhoneCall(...)` → `speak("consegui às 20h")`), representando explicitamente a ordem das ações em vez de um texto único no fim.
+
+Sem streaming por agora — `speak(text)` é uma chamada única, bloqueante, igual a qualquer outra tool (`tool.request`/`tool.completed`, sem eventos `speak.chunk`), consistente com a decisão já registrada em [Transporte e Áudio](transport-and-audio.md#sem-streaming-de-áudio-por-agora). Se streaming vier a ser necessário, só é viável quebrando por frase/oração completa (o TTS precisa da oração inteira pra acertar entonação) — não por token. Fica anotado, sem implementar agora.
+
+### `speak` é uma capability "core", nunca sujeita a discovery
+
+Conforme o catálogo de capabilities crescer, pode fazer sentido não injetar tudo no prompt do Planner de uma vez — descobrir capabilities relevantes sob demanda (o mesmo princípio já aplicado a memória em [MVP: injetar tudo](memory.md#mvp-injetar-tudo): injeta tudo até o volume doer, só então adiciona descoberta/filtragem). Isso não é necessário agora (poucas capabilities), mas quando existir, `speak` — e outras capabilities fundamentais a qualquer turno do Agent — não podem correr o risco de ficar de fora de um filtro de relevância. O catálogo já nasce com um flag (`core: true`) para essas capabilities, que qualquer mecanismo futuro de descoberta é obrigado a sempre incluir, independente de pontuação de relevância.
+
 ## Protocolo de anúncio: handshake da conexão
 
 Capabilities são anunciadas em uma mensagem única no handshake da conexão WebSocket — não há atualização dinâmica em runtime. Se um client precisa mudar suas capabilities (ex: instalou um novo plugin), a forma de refletir isso é reconectar.
@@ -93,3 +103,4 @@ Frames de controle (ping/pong) nativos do protocolo WebSocket já cobrem a detec
 ## Em aberto
 
 - **Comunicação entre serviços futuros** — hoje é um monólito Go. Se no futuro surgir mais de um serviço server-side (ex: um serviço dedicado a STT/TTS separado do core), como eles se comunicam é uma decisão prematura — só vale revisitar quando a necessidade aparecer de verdade.
+- **Skills e Capability Discovery** — conforme o número de capabilities crescer, agrupar Tools relacionadas em "Skills" de nível mais alto (ex: uma Skill `reservarRestaurante` orquestrando várias Tools) e descobrir capabilities relevantes sob demanda, em vez de injetar o catálogo inteiro no prompt do Planner. Ideia validada (é essencialmente o mesmo mecanismo usado por ferramentas de busca de tool sob demanda em agentes de LLM hoje), mas deliberadamente fora de escopo do MVP — poucas capabilities existem ainda para essa dor se manifestar de verdade.

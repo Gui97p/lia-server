@@ -9,13 +9,23 @@ Planner   →  "O que precisa ser feito?"   →  produz plano
 Executor  →  "Como executar cada etapa?"  →  executa deterministicamente
 ```
 
+## Agent como camada de orquestração
+
+O loop Planner → Executor → (falha) → Replanner → novo plano (ver [Modelo híbrido de planejamento](#modelo-híbrido-de-planejamento)) é formalizado como um tipo `Agent` no código, em vez de ficar implícito em `main.go`. O `Agent` não substitui Planner/Executor — ele é quem orquestra o ciclo entre eles.
+
+Isso abre espaço para múltiplos tipos de `Agent` no futuro (ex: um agent simples para comandos diretos, um agent de pesquisa, um agent de monitoramento contínuo), todos reaproveitando a mesma infraestrutura de Tasks, Tools, Memory e Executor — mas essa variação é para depois: por ora existe só um tipo de `Agent`. Quando existirem vários, surge a pergunta de **qual `Agent` usar para qual Task** (um roteador/dispatcher) — não é uma decisão a tomar agora, só um problema previsível quando #4 sair do papel.
+
 ## Planner
 
 Recebe a intenção do usuário e o contexto atual. Produz um macro-workflow — uma sequência de etapas de alto nível.
 
 O Planner não sabe se "abrir o Spotify" vai ser executado via AppleScript, PowerShell ou API. Ele pede uma capability. O sistema resolve quem pode fornecê-la.
 
-Cada instrução processada pelo Planner carrega uma **proveniência** (`comando_direto` vs `memoria_injetada`) — ver [Memória: proveniência e segurança](memory.md#proveniência-e-segurança-contra-prompt-injection). Isso é usado pelo Executor para decidir se uma tool sensível pode rodar direto ou precisa de confirmação.
+Cada instrução processada pelo Planner carrega uma **proveniência** (`comando_direto`, `memoria_injetada`, `agendado` ou `evento` — ver [Memória: proveniência e segurança](memory.md#proveniência-e-segurança-contra-prompt-injection) e [Tasks e Eventos: autorização de Tasks sem sessão](tasks-and-events.md#autorização-de-tasks-sem-sessão-viva)). Isso é usado pelo Executor para decidir se uma tool sensível pode rodar direto ou precisa de confirmação.
+
+### Abstração de LLM
+
+O Planner chama uma LLM através de `internal/llm`, que expõe uma interface pequena (ex: `Complete(ctx, prompt) (string, error)`) em vez de acoplar diretamente ao SDK do Groq — mesmo padrão de interface já usado em `internal/memory` (`Store`). Isso não significa construir suporte real a múltiplos providers agora (seria complexidade antecipada sem necessidade concreta) — só evita que o resto do sistema dependa de tipos específicos do SDK do Groq. Hoje existe uma única implementação (Groq); trocar ou adicionar outro provider no futuro fica contido em `internal/llm`.
 
 ## Executor
 
