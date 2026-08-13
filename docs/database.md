@@ -3,7 +3,7 @@
 PostgreSQL como banco principal. Suporta múltiplas conexões simultâneas e prepara para `pgvector` no futuro (ver [Memória](memory.md#mvp-injetar-tudo)).
 
 ```sql
-users          (id, username, password_hash, groq_api_key_encrypted, created_at, token_version)
+users          (id, username, groq_api_key_encrypted, created_at, token_version)
 groups         (id, name, created_at)
 user_groups    (user_id, group_id)
 voice_profiles (id, user_id, embedding, created_at)
@@ -18,7 +18,7 @@ tasks          (id, user_id, state, workflow, trigger_type, authorized_trust_lev
 
 `groq_api_key_encrypted` é cifrada na camada da aplicação (AES-GCM, chave em `ENCRYPTION_KEY`, separada de `JWT_SECRET`) antes de ser gravada — ver [detalhes em Identidade e Secrets](identity-auth-and-secrets.md#groq_api_key-cifrada-em-repouso). Um dump do banco sozinho não deve ser suficiente para recuperar as keys.
 
-`password_hash` usa `bcrypt`, nunca texto plano nem hash reversível.
+Sem senha, e portanto sem `password_hash` — tokens são gerados via `lia-admin` (ver [Sem login, tokens gerados via `lia-admin`](identity-auth-and-secrets.md#sem-login-tokens-gerados-via-lia-admin)).
 
 ## Isolamento de escopo de memória
 

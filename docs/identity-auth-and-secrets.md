@@ -55,16 +55,14 @@ A linha mais sensível é a de tools com efeito físico — merece revisão cons
 ## Modelo de dados
 
 ```sql
-users        (id, username, password_hash, groq_api_key_encrypted, created_at)
+users        (id, username, groq_api_key_encrypted, created_at)
 groups       (id, name, created_at)
 user_groups  (user_id, group_id)
 voice_profiles (id, user_id, embedding, created_at)
 devices      (id, user_id, device_type, token_version, trusted, created_at)
 ```
 
-### Hashing de senha
-
-`bcrypt` (`golang.org/x/crypto/bcrypt`), custo 12+. Simples, madura, suficiente para este projeto — não há necessidade de `argon2id` na escala e no modelo de ameaça atuais.
+Sem senha — ver [Sem login, tokens gerados via `lia-admin`](#sem-login-tokens-gerados-via-lia-admin) abaixo.
 
 ### `groq_api_key` cifrada em repouso
 
@@ -83,11 +81,21 @@ Operações via CLI Go local — sem rota pública de registro:
 
 ./lia-admin devices list --username yure
 ./lia-admin devices revoke --device-id <uuid>              # bump no token_version só desse device
+
+./lia-admin tokens generate --username yure --device-type desktop   # gera o JWT, cria o device
 ```
 
 ## JWT
 
-Login via HTTP retorna JWT de longa duração (1 ano). Sem refresh tokens — decisão final, com a mitigação abaixo.
+### Sem login, tokens gerados via `lia-admin`
+
+Não existe senha, nem rota de login. Como não há registro público (gestão de usuários já é só via `lia-admin` local), estender esse mesmo princípio para autenticação elimina uma superfície de ataque inteira: sem senha, não há o que forçar por brute-force, phishing, nem rota de login pra proteger na rede.
+
+`lia-admin` gera o JWT diretamente (com acesso direto ao banco, já sabe o `token_version` vigente) e o token é distribuído manualmente, fora de banda, para cada dispositivo — não existe `POST /auth/login`. A credencial forte que define `AUTHENTICATED` na matriz não é mais "digitou a senha certa", é "possui um JWT pré-provisionado pelo `lia-admin`" — um JWT gerado por máquina tem entropia bem maior que qualquer senha memorizável.
+
+Distribuição do token na prática: usar um canal que não retém texto plano indefinidamente (ex: mensagem descartável, entrega local) em vez de colar num chat persistente (um DM de Discord, por exemplo, fica no histórico do servidor deles para sempre). Trade-off aceito: gerar/revogar um token exige acesso direto ao `lia-admin` — o mesmo já era verdade para gestão de usuários, só se estende à autenticação.
+
+Token de longa duração (1 ano), sem refresh tokens — decisão final, com a mitigação abaixo.
 
 ```json
 {
@@ -109,6 +117,16 @@ Cada usuário tem uma coluna `token_version` em `users`. Todo JWT emitido carreg
 Revogar todas as sessões de um usuário (ex: suspeita de token roubado) é um único `UPDATE users SET token_version = token_version + 1 WHERE id = ...` via `lia-admin` — instantâneo, sem precisar de denylist de tokens que cresce sem limite. Isso resolve o cenário "peguei o token de madrugada e só consigo agir de manhã": a revogação acontece assim que alguém perceber, não depende de o token expirar.
 
 Por que não passkeys/WebAuthn: WebAuthn é pensado para navegador conversando com um authenticator de plataforma (TouchID, Windows Hello, chave física). Os clients daqui (desktop Rust, CLI, bot de Discord) não têm acesso natural à API de WebAuthn do browser — seria complexidade nova sem ganho real. JWT + `token_version` é suficiente para o modelo de ameaça e a base de usuários deste projeto.
+
+### Onde o token mora no client
+
+Sem senha pra digitar de novo caso o token vaze de um arquivo qualquer, o armazenamento do JWT no client vira o ponto sensível — precisa ser tratado como segredo, nunca como config comum:
+
+- **Desktop (Rust)** — armazenamento nativo do SO, não arquivo de config em texto plano: Keychain no macOS, Credential Manager no Windows, Secret Service no Linux. A crate `keyring` (Rust) abstrai os três.
+- **CLI** — mesma abordagem (`keyring`) quando possível; se não for viável no contexto de uso, um arquivo com permissão restrita (`chmod 600`, fora de qualquer pasta versionada) é o mínimo aceitável.
+- **Bot de Discord** — roda como processo sem sessão de usuário/GUI, então armazenamento nativo do SO não se aplica da mesma forma. Trata igual a qualquer outro segredo de servidor já documentado aqui: variável de ambiente, nunca em arquivo versionado.
+
+Isso é majoritariamente decisão do lado client (Rust) — fica registrado aqui como requisito de segurança que o client precisa cumprir, não como algo a implementar neste repositório.
 
 ## Autorização por dispositivo
 

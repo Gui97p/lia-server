@@ -39,9 +39,10 @@ Protocolo definido: **WebSocket puro** (`nhooyr.io/websocket` no server), com me
 Socket.IO foi avaliado e descartado: suporte de terceiros imaturo tanto em Go (server, via `googollee/go-socket.io`, manutenção irregular) quanto em Rust (clients) — risco alto para dependência de longo prazo. WebSocket puro ganha o determinismo do event-driven que o projeto já quer, sem depender de uma lib de compatibilidade duvidosa entre as duas linguagens.
 
 Rotas HTTP permanecem para operações pontuais:
-- `POST /auth/login`
 - `POST /audio/transcribe`
 - `POST /audio/speak`
+
+Sem `/auth/login` — não existe senha nem fluxo de login em rede; tokens são gerados via `lia-admin` (ver [Identidade, Autenticação e Secrets](identity-auth-and-secrets.md#sem-login-tokens-gerados-via-lia-admin)).
 
 ## Áudio
 
