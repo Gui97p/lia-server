@@ -13,6 +13,8 @@ else
 COMPOSE := docker compose
 endif
 
+default: build
+
 run:
 	go run ./cmd/server
 
