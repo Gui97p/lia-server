@@ -3,7 +3,9 @@ package main
 import (
 	"context"
 	"log/slog"
+	"net/http"
 	"os"
+	"time"
 
 	"github.com/Gui97p/lia-server/internal/config"
 	"github.com/Gui97p/lia-server/internal/db"
@@ -26,5 +28,21 @@ func main() {
 	}
 	defer pool.Close()
 
-	logger.Info("Server starting", "port", cfg.Port)
+	mux := http.NewServeMux()
+	mux.HandleFunc("GET /health", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(`{"status":"ok"}`))
+	})
+
+	app := &http.Server{
+		Addr:              ":" + cfg.Port,
+		Handler:           mux,
+		ReadHeaderTimeout: 5 * time.Second,
+	}
+
+	logger.Info("server starting", "port", cfg.Port)
+	if err := app.ListenAndServe(); err != nil {
+		logger.Error("server failed", "error", err)
+		os.Exit(1)
+	}
 }
