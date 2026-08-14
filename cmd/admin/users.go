@@ -67,7 +67,7 @@ var usersCreateCmd = &cobra.Command{
 			return err
 		}
 
-		fmt.Printf("user sucessfully created: id=%s username=%s\n", u.ID, u.Username)
+		fmt.Printf("user successfully created: id=%s username=%s\n", u.ID, u.Username)
 		return nil
 	},
 }
@@ -107,7 +107,7 @@ var usersDeleteCmd = &cobra.Command{
 			return err
 		}
 
-		fmt.Printf("user sucessfully deleted: id=%s\n", u.ID)
+		fmt.Printf("user successfully deleted: id=%s\n", u.ID)
 		return nil
 	},
 }
@@ -138,7 +138,7 @@ var usersSetKeyCmd = &cobra.Command{
 			return err
 		}
 
-		fmt.Printf("key sucessfuly updated: id=%s\n", u.ID)
+		fmt.Printf("key successfully updated: id=%s\n", u.ID)
 		return nil
 	},
 }

@@ -13,6 +13,7 @@ import (
 var (
 	userStore     users.Store
 	encryptionKey []byte
+	jwtSecret     []byte
 )
 
 func main() {
@@ -34,6 +35,7 @@ func main() {
 
 	userStore = users.NewPostgresStore(pool)
 	encryptionKey = cfg.EncryptionKey
+	jwtSecret = cfg.JWTSecret
 
 	if err := rootCmd.Execute(); err != nil {
 		os.Exit(1)
