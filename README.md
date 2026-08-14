@@ -51,6 +51,17 @@ make run             # roda o server
 
 Outros comandos disponíveis no `Makefile` (`make build`, `make test`, `make db-down`, `make db-drop`, `make migrate-down`, `make migrate-create name=...`, etc.).
 
+### Hot reload (opcional)
+
+`make run` não reconstrói sozinho quando o código muda. Pra isso, instale o [`air`](https://github.com/air-verse/air) (fork ativo do antigo `cosmtrek/air`) e use `make dev` no lugar de `make run`:
+
+```bash
+go install github.com/air-verse/air@latest
+make dev
+```
+
+Configuração em `.air.toml` (na raiz do repo) — reconstrói e reinicia o `cmd/server` a cada `.go` alterado.
+
 ## Documentação
 
 A arquitetura completa do sistema — identidade e autenticação, memória, Planner/Executor, tasks e eventos, transporte, banco de dados, observabilidade, e as decisões ainda em aberto — está em [`docs/`](docs/).

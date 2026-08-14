@@ -1,4 +1,4 @@
-.PHONY: run run-admin build test tidy fmt vet clean db-up db-down db-drop migrate-up migrate-down migrate-create migrate-force migrate-reset
+.PHONY: run run-admin dev build test tidy fmt vet clean db-up db-down db-drop migrate-up migrate-down migrate-create migrate-force migrate-reset
 
 -include .env
 export
@@ -20,6 +20,9 @@ run:
 
 run-admin:
 	go run ./cmd/admin
+
+dev:
+	air
 
 build:
 	go build -o $(BIN_DIR)/lia-server ./cmd/server
