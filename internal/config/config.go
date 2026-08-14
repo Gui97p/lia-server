@@ -12,8 +12,26 @@ import (
 type Config struct {
 	Port          string
 	DatabaseURL   string
-	JWTSecret     string
+	JWTSecret     []byte
 	EncryptionKey []byte
+}
+
+func parseBase64(key string) ([]byte, error) {
+	raw := os.Getenv(key)
+
+	if raw == "" {
+		return nil, fmt.Errorf("%s is required", key)
+	}
+
+	value, err := base64.StdEncoding.DecodeString(raw)
+	if err != nil {
+		return nil, fmt.Errorf("%s is not valid base64: %w", key, err)
+	}
+	if len(value) != 32 {
+		return nil, fmt.Errorf("%s must decode to 32 bytes, got %d", key, len(value))
+	}
+
+	return value, nil
 }
 
 func Load() (*Config, error) {
@@ -24,29 +42,23 @@ func Load() (*Config, error) {
 	cfg := &Config{
 		Port:        os.Getenv("PORT"),
 		DatabaseURL: os.Getenv("DATABASE_URL"),
-		JWTSecret:   os.Getenv("JWT_SECRET"),
 	}
 
 	if cfg.DatabaseURL == "" {
 		return nil, errors.New("DATABASE_URL is required")
 	}
-	if cfg.JWTSecret == "" {
-		return nil, errors.New("JWT_SECRET is required")
-	}
 
-	encryptionKeyRaw := os.Getenv("ENCRYPTION_KEY")
-	if encryptionKeyRaw == "" {
-		return nil, errors.New("ENCRYPTION_KEY is required")
-	}
-
-	encryptionKey, err := base64.StdEncoding.DecodeString(encryptionKeyRaw)
+	jwtSecret, err := parseBase64("JWT_SECRET")
 	if err != nil {
-		return nil, fmt.Errorf("ENCRYPTION_KEY is not valid base64: %w", err)
+		return nil, err
 	}
-	if len(encryptionKey) != 32 {
-		return nil, fmt.Errorf("ENCRYPTION_KEY must decode to 32 bytes, got %d", len(encryptionKey))
-	}
+	cfg.JWTSecret = jwtSecret
 
+	var encryptionKey []byte
+	encryptionKey, err = parseBase64("ENCRYPTION_KEY")
+	if err != nil {
+		return nil, err
+	}
 	cfg.EncryptionKey = encryptionKey
 
 	if cfg.Port == "" {
