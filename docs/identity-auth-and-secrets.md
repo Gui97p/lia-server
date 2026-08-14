@@ -59,7 +59,6 @@ users        (id, username, groq_api_key_encrypted, created_at)
 groups       (id, name, created_at)
 user_groups  (user_id, group_id)
 voice_profiles (id, user_id, embedding, created_at)
-devices      (id, user_id, device_type, token_version, trusted, created_at)
 ```
 
 Sem senha — ver [Sem login, tokens gerados via `lia-admin`](#sem-login-tokens-gerados-via-lia-admin) abaixo.
@@ -79,10 +78,7 @@ Operações via CLI Go local — sem rota pública de registro:
 ./lia-admin users delete --username yure
 ./lia-admin users set-key --username yure --key gsk_...   # cifra antes de gravar
 
-./lia-admin devices list --username yure
-./lia-admin devices revoke --device-id <uuid>              # bump no token_version só desse device
-
-./lia-admin tokens generate --username yure --device-type desktop   # gera o JWT, cria o device
+./lia-admin tokens generate --username yure   # gera o JWT do usuário
 ```
 
 ## JWT
@@ -91,7 +87,9 @@ Operações via CLI Go local — sem rota pública de registro:
 
 Não existe senha, nem rota de login. Como não há registro público (gestão de usuários já é só via `lia-admin` local), estender esse mesmo princípio para autenticação elimina uma superfície de ataque inteira: sem senha, não há o que forçar por brute-force, phishing, nem rota de login pra proteger na rede.
 
-`lia-admin` gera o JWT diretamente (com acesso direto ao banco, já sabe o `token_version` vigente) e o token é distribuído manualmente, fora de banda, para cada dispositivo — não existe `POST /auth/login`. A credencial forte que define `AUTHENTICATED` na matriz não é mais "digitou a senha certa", é "possui um JWT pré-provisionado pelo `lia-admin`" — um JWT gerado por máquina tem entropia bem maior que qualquer senha memorizável.
+`lia-admin` gera o JWT diretamente (com acesso direto ao banco, já sabe o `token_version` vigente) e o token é distribuído manualmente, fora de banda — não existe `POST /auth/login`. A credencial forte que define `AUTHENTICATED` na matriz não é mais "digitou a senha certa", é "possui um JWT pré-provisionado pelo `lia-admin`" — um JWT gerado por máquina tem entropia bem maior que qualquer senha memorizável.
+
+**Um token por usuário, não por dispositivo.** O mesmo JWT é usado em todos os dispositivos daquele usuário — é a identidade dele, não a identidade de um device específico. Considerou-se ter um token por dispositivo (revogação mais granular, só invalidar o aparelho comprometido), mas para 2 usuários com poucos dispositivos cada, isso é complexidade que não se paga: reemitir um token novo pros outros dispositivos depois de um incidente raro não é um fardo real, e a alternativa (gerenciar token por dispositivo, uma tabela `devices`, comandos extras de `lia-admin`) é custo certo por um benefício que praticamente nunca vai ser usado.
 
 Distribuição do token na prática: usar um canal que não retém texto plano indefinidamente (ex: mensagem descartável, entrega local) em vez de colar num chat persistente (um DM de Discord, por exemplo, fica no histórico do servidor deles para sempre). Trade-off aceito: gerar/revogar um token exige acesso direto ao `lia-admin` — o mesmo já era verdade para gestão de usuários, só se estende à autenticação.
 
@@ -101,7 +99,6 @@ Token de longa duração (1 ano), sem refresh tokens — decisão final, com a m
 {
   "user_id": "uuid",
   "username": "gui",
-  "device_id": "uuid",
   "group_ids": ["amigos"],
   "trust_level": "authenticated",
   "token_version": 3
@@ -128,16 +125,8 @@ Sem senha pra digitar de novo caso o token vaze de um arquivo qualquer, o armaze
 
 Isso é majoritariamente decisão do lado client (Rust) — fica registrado aqui como requisito de segurança que o client precisa cumprir, não como algo a implementar neste repositório.
 
-## Autorização por dispositivo
+## Canal como sinal de risco (adiado)
 
-`token_version` no usuário revoga *todas* as sessões dele de uma vez — todos os dispositivos. Isso é grosso demais: perder o notebook não deveria exigir deslogar celular, CLI e bot de Discord também.
+Nem todo canal de origem merece o mesmo teto de confiança — um comando vindo do app desktop (WebSocket autenticado, dispositivo que o usuário fisicamente possui) é mais confiável que o mesmo comando chegando via Discord (mensagem em canal de grupo, mais fácil de falsificar se a conta de alguém for comprometida). A ideia é a matriz de capability × trust level também considerar o canal de origem da conexão — por exemplo, tools com efeito físico exigindo um canal específico, independente do trust level da sessão.
 
-Por isso, `token_version` também existe por dispositivo (tabela `devices`, coluna própria), e cada JWT carrega `device_id` além de `user_id`. A validação do token passa a checar duas coisas: `token_version` do usuário **e** `token_version` do dispositivo. Revogar um dispositivo específico é um único `UPDATE devices SET token_version = token_version + 1 WHERE id = ...` via `lia-admin devices revoke` — sem afetar os demais dispositivos do mesmo usuário. É essencialmente a mesma mecânica do `token_version` de usuário, só que com granularidade menor, e por isso quase não adiciona custo de implementação.
-
-Isso também abre espaço para "contexto conhecido" (o que hoje diferencia `AUTHENTICATED` de `TRUSTED`) incluir o dispositivo: um dispositivo marcado `trusted: true` (ex: o próprio desktop de casa) pode elevar a sessão a `TRUSTED`, enquanto um dispositivo novo/não reconhecido fica em `AUTHENTICATED` mesmo com credencial válida, até acumular histórico.
-
-### Canal como sinal de risco (adiado)
-
-Nem todo canal de origem merece o mesmo teto de confiança — um comando vindo do app desktop (WebSocket autenticado, dispositivo que o usuário fisicamente possui) é mais confiável que o mesmo comando chegando via Discord (mensagem em canal de grupo, mais fácil de falsificar se a conta de alguém for comprometida). A ideia é a matriz de capability × trust level também considerar o dispositivo/canal de origem — por exemplo, tools com efeito físico só executarem se o comando vier de um dispositivo pré-registrado como confiável, independente do trust level da sessão.
-
-Isso fica deliberadamente **fora de escopo por enquanto** — só vale desenhar de verdade quando o caso de uso 4 do roadmap (ações físicas: trancar porta, backup) estiver sendo implementado de fato, com um canal real de menor confiança (Discord) para testar contra.
+Isso fica deliberadamente **fora de escopo por enquanto** (não depende de um cadastro de dispositivos — o token já é por usuário, ver acima) — só vale desenhar de verdade quando o caso de uso 4 do roadmap (ações físicas: trancar porta, backup) estiver sendo implementado de fato, com um canal real de menor confiança (Discord) para testar contra.

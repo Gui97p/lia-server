@@ -101,7 +101,7 @@ Executor analisa
 
 ## Autorização de Tasks sem sessão viva
 
-Todo o modelo de identidade (ver [Identidade, Autenticação e Secrets](identity-auth-and-secrets.md)) pressupõe uma sessão viva — um JWT, um device conectado. Isso não existe para uma Task disparada por agendamento ("toda sexta faça backup") ou por evento externo ("porta aberta há 5 minutos"). Sem sessão, não há `trust_level` nem `device_id` pra consultar.
+Todo o modelo de identidade (ver [Identidade, Autenticação e Secrets](identity-auth-and-secrets.md)) pressupõe uma sessão viva — um JWT conectado. Isso não existe para uma Task disparada por agendamento ("toda sexta faça backup") ou por evento externo ("porta aberta há 5 minutos"). Sem sessão, não há `trust_level` pra consultar.
 
 Toda Task carrega um `trigger_type` e um snapshot congelado de autorização, capturado no momento em que a Task foi criada (não uma referência a uma sessão que pode nem existir mais quando a Task rodar):
 
