@@ -34,7 +34,7 @@ STT/TTS no servidor não significa que o cliente precisa esperar respostas compl
 
 ## Transporte
 
-Protocolo definido: **WebSocket puro** (`nhooyr.io/websocket` no server), com mensagens em JSON (`event`/`payload`) definidas pelo próprio projeto. A comunicação é bidirecional e persistente — não HTTP puro.
+Protocolo definido: **WebSocket puro** (`github.com/coder/websocket` no server — fork mantido pela Coder desde ago/2024, quando o autor original do `nhooyr.io/websocket` passou o projeto adiante; mesma API, só muda o import path), com mensagens em JSON (`event`/`payload`) definidas pelo próprio projeto. A comunicação é bidirecional e persistente — não HTTP puro.
 
 Socket.IO foi avaliado e descartado: suporte de terceiros imaturo tanto em Go (server, via `googollee/go-socket.io`, manutenção irregular) quanto em Rust (clients) — risco alto para dependência de longo prazo. WebSocket puro ganha o determinismo do event-driven que o projeto já quer, sem depender de uma lib de compatibilidade duvidosa entre as duas linguagens.
 
