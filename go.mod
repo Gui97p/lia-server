@@ -3,6 +3,7 @@ module github.com/Gui97p/lia-server
 go 1.26.5
 
 require (
+	github.com/coder/websocket v1.8.15
 	github.com/golang-jwt/jwt/v5 v5.3.1
 	github.com/google/uuid v1.6.0
 	github.com/jackc/pgx/v5 v5.10.0

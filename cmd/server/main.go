@@ -9,6 +9,7 @@ import (
 
 	"github.com/Gui97p/lia-server/internal/config"
 	"github.com/Gui97p/lia-server/internal/db"
+	"github.com/coder/websocket"
 )
 
 func main() {
@@ -32,6 +33,26 @@ func main() {
 	mux.HandleFunc("GET /health", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte(`{"status":"ok"}`))
+	})
+
+	mux.HandleFunc("GET /ws", func(w http.ResponseWriter, r *http.Request) {
+		conn, err := websocket.Accept(w, r, nil)
+		if err != nil {
+			logger.Error("websocket accept failed", "error", err)
+			return
+		}
+		defer conn.CloseNow()
+
+		ctx := r.Context()
+		for {
+			typ, data, err := conn.Read(ctx)
+			if err != nil {
+				break
+			}
+			if err := conn.Write(ctx, typ, data); err != nil {
+				break
+			}
+		}
 	})
 
 	app := &http.Server{
