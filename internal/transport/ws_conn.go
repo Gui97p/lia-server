@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/Gui97p/lia-server/internal/auth"
@@ -14,15 +15,25 @@ import (
 	"github.com/google/uuid"
 )
 
-type ConnectionContext struct {
-	UserID       string
-	Username     string
-	TrustLevel   auth.TrustLevel
-	GroqAPIKey   string
-	Capabilities []string
-}
+func (s *Server) handshake(ctx context.Context, conn *websocket.Conn) (*Session, error) {
+	session := Session{}
+	var writeMu sync.Mutex
+	session.Writer = func(ctx context.Context, event string, payload any) error {
+		jsonPayload, err := json.Marshal(payload)
+		if err != nil {
+			return err
+		}
 
-func (s *Server) handshake(ctx context.Context, conn *websocket.Conn) (*ConnectionContext, error) {
+		data, err := json.Marshal(Envelope{Event: event, Payload: jsonPayload})
+		if err != nil {
+			return err
+		}
+
+		writeMu.Lock()
+		defer writeMu.Unlock()
+		return conn.Write(ctx, websocket.MessageText, data)
+	}
+
 	_, data, err := conn.Read(ctx)
 	if err != nil {
 		return nil, err
@@ -30,12 +41,12 @@ func (s *Server) handshake(ctx context.Context, conn *websocket.Conn) (*Connecti
 
 	var env Envelope
 	if err := json.Unmarshal(data, &env); err != nil {
-		sendError(ctx, conn, "invalid request")
+		sendError(ctx, &session, "invalid request")
 		return nil, err
 	}
 
 	if env.Event != "auth" {
-		sendError(ctx, conn, "first message must be auth")
+		sendError(ctx, &session, "first message must be auth")
 		return nil, fmt.Errorf("expected auth event")
 	}
 
@@ -44,56 +55,57 @@ func (s *Server) handshake(ctx context.Context, conn *websocket.Conn) (*Connecti
 		Capabilities []string `json:"capabilities"`
 	}
 	if err := json.Unmarshal(env.Payload, &authPayload); err != nil {
-		sendError(ctx, conn, "invalid payload")
+		sendError(ctx, &session, "invalid payload")
 		return nil, err
 	}
 
 	claims, err := auth.ParseToken(s.jwtSecret, authPayload.Token)
 	if err != nil {
-		sendError(ctx, conn, "invalid token")
+		sendError(ctx, &session, "invalid token")
 		return nil, err
 	}
 
 	if authPayload.Capabilities == nil {
-		sendError(ctx, conn, "invalid capabilities")
+		sendError(ctx, &session, "invalid capabilities")
 		return nil, errors.New("invalid capabilities")
 	}
 
 	userID, err := uuid.Parse(claims.UserID)
 	if err != nil {
-		sendError(ctx, conn, "invalid uuid")
+		sendError(ctx, &session, "invalid uuid")
 		return nil, err
 	}
 
 	user, err := s.usersStore.GetByID(ctx, userID)
 	if err != nil {
-		sendError(ctx, conn, "user not found")
+		sendError(ctx, &session, "user not found")
 		return nil, err
 	}
 
 	if user.TokenVersion != claims.TokenVersion {
-		sendError(ctx, conn, "token revoked")
+		sendError(ctx, &session, "token revoked")
 		return nil, errors.New("token version mismatch")
 	}
 
 	if user.GroqAPIKeyEncrypted == nil {
-		sendError(ctx, conn, "invalid api key")
+		sendError(ctx, &session, "invalid api key")
 		return nil, errors.New("api key not set")
 	}
 
 	groqAPIKey, err := crypto.Decrypt(*user.GroqAPIKeyEncrypted, s.encryptionKey)
 	if err != nil {
-		sendError(ctx, conn, "invalid api key")
+		sendError(ctx, &session, "invalid api key")
 		return nil, err
 	}
 
-	return &ConnectionContext{
-		UserID:       claims.UserID,
-		Username:     user.Username,
-		TrustLevel:   claims.TrustLevel,
-		GroqAPIKey:   groqAPIKey,
-		Capabilities: authPayload.Capabilities,
-	}, nil
+	session.ConnID = uuid.New()
+	session.UserID = userID
+	session.Username = user.Username
+	session.TrustLevel = claims.TrustLevel
+	session.GroqAPIKey = groqAPIKey
+	session.Capabilities = authPayload.Capabilities
+
+	return &session, nil
 }
 
 func (s *Server) handleWS(w http.ResponseWriter, r *http.Request) {
@@ -103,18 +115,24 @@ func (s *Server) handleWS(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	ctx := r.Context()
+	ctx := context.Background()
 	timeoutCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
-	defer cancel()
 
-	connCtx, err := s.handshake(timeoutCtx, conn)
+	session, err := s.handshake(timeoutCtx, conn)
+	cancel()
 	if err != nil {
 		conn.CloseNow()
 		return
 	}
-
 	defer conn.CloseNow()
-	err = sendEvent(ctx, conn, "auth.ok", struct{}{})
+
+	s.hub.Register(session.ConnID, session)
+	defer s.hub.Unregister(session.ConnID)
+
+	type AuthResponse struct {
+		ConnID string `json:"conn_id"`
+	}
+	err = session.Writer(ctx, "auth.ok", AuthResponse{ConnID: session.ConnID.String()})
 	if err != nil {
 		return
 	}
@@ -124,7 +142,7 @@ func (s *Server) handleWS(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			break
 		}
-		if err := s.router.dispatch(ctx, conn, connCtx, data); err != nil {
+		if err := s.router.dispatch(ctx, session, data); err != nil {
 			break
 		}
 	}

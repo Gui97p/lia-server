@@ -16,6 +16,7 @@ type Deps struct {
 type Server struct {
 	logger *slog.Logger
 	router *router
+	hub    *Hub
 
 	usersStore users.Store
 
@@ -24,7 +25,14 @@ type Server struct {
 }
 
 func New(cfg *config.Config, logger *slog.Logger, deps Deps) *http.Server {
-	s := &Server{logger: logger, router: newRouter(), jwtSecret: cfg.JWTSecret, encryptionKey: cfg.EncryptionKey, usersStore: deps.UsersStore}
+	s := &Server{
+		logger:        logger,
+		router:        newRouter(),
+		hub:           newHub(),
+		jwtSecret:     cfg.JWTSecret,
+		encryptionKey: cfg.EncryptionKey,
+		usersStore:    deps.UsersStore,
+	}
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /health", s.handleHealth)
