@@ -39,36 +39,33 @@ O catálogo no Postgres elimina a necessidade de deploy só para *documentar* um
 
 ## Registry de capabilities
 
-O Executor consulta o registry em runtime, que mapeia capabilities para implementations disponíveis no momento. Clients anunciam suas capabilities ao conectar, usando o formato do catálogo.
+O Executor consulta o registry em runtime, que mapeia capabilities para implementations disponíveis no momento. No connect, o client só anuncia **quais** capabilities ele implementa; **como** cada uma se parece (descrição, schema de params, `source`, trust) vem do catálogo no Postgres. O server cruza os dois: nomes anunciados ∩ catálogo → o que o Planner/Executor podem usar nesta sessão.
 
-Capability declarada no handshake significa **"eu sei fazer isso"**, não "o valor disso agora". Isso importa para distinguir dois tipos de capability:
-
-- **Estáticas por sessão** — o enum de valores é estável durante toda a conexão (ex: `openApp`, a lista de apps instalados não muda a cada segundo). Pode vir com o enum completo já no handshake.
-- **Estado dinâmico** — o "valor" muda constantemente (ex: `activeWindows`, quais janelas estão abertas agora). Não faz sentido anunciar um snapshot no handshake, porque ele fica desatualizado imediatamente. O handshake só declara que o client **suporta** essa capability; o valor real é sempre consultado sob demanda, no momento em que o Executor precisa dele, usando o ciclo de vida normal de tool (`tool.request` → `tool.completed`) — nunca cacheado.
+Capability declarada no handshake significa **"eu sei fazer isso"** — não schema, não enum de valores, não snapshot de estado. Valores que mudam (janelas abertas, apps instalados, etc.) nunca vão no handshake: ou são resolvidos no client na hora de executar a tool, ou são consultados sob demanda via ciclo de vida normal (`tool.request` → `tool.completed`).
 
 ### Contrato do handshake
 
-Uma versão anterior deste projeto (protótipo em Python, HTTP) usava um contrato onde cada chave do objeto `capabilities` era um enum de valores (`"openApp": [...]`), exceto uma chave especial `"default"` que guardava uma lista de nomes de capability sem enum. Isso mistura dois formatos incompatíveis sob o mesmo tipo (array de string) e não generaliza — quebra na primeira capability que precisar de mais de um parâmetro com enum.
-
-Contrato atual: `capabilities` é uma lista de objetos, cada um com `name` e, opcionalmente, `params` (parâmetros com enum de valores válidos). Sem capability especial "default" — uma capability sem enum simplesmente não declara `params`.
+O anúncio entra no mesmo evento `auth` da conexão WebSocket (mensagem única — ver [Protocolo de anúncio](#protocolo-de-anúncio-handshake-da-conexão)). `capabilities` é um **array de nomes** (strings). Nada de objetos com `params`, enums de apps, nem metadado de catálogo repetido pelo client.
 
 ```json
 {
-  "capabilities": [
-    { "name": "openApp", "params": { "app": ["discord", "vscode", "spotify"] } },
-    { "name": "activeWindows" },
-    { "name": "moveWindow", "params": { "window": { "source": "activeWindows" } } },
-    { "name": "exit" },
-    { "name": "setClock" }
-  ]
+  "event": "auth",
+  "payload": {
+    "token": "<jwt>",
+    "capabilities": ["openApp", "activeWindows", "moveWindow", "exit", "setClock"]
+  }
 }
 ```
 
-Esse formato é próximo do que APIs de function-calling de LLM (incluindo a Groq) já esperam para descrever tools — reaproveitar essa forma evita tradução estranha entre o schema do registry e o schema que vai para o Planner.
+Por que não reenviar o contrato da tool no handshake: o schema já está no Postgres. Repeti-lo no client cria duas fontes de verdade e diverge (client desatualizado vs catálogo). Enums locais (ex.: apps instalados) também não cabem aqui — ficam stale na hora em que o usuário instala ou remove algo; o client resolve na execução (ou falha a tool se o app não existir).
+
+Nomes desconhecidos do catálogo (typo, capability ainda não registrada via `lia-admin`) devem ser rejeitados ou ignorados de forma explícita no server — não silenciar sem regra. Lista vazia é válida (client autenticado sem tools locais).
+
+O formato que o Planner/LLM vê (function-calling, descrição, params) é montado **no server** a partir do catálogo, filtrado pelo registry da sessão — não é o payload do handshake.
 
 ### Dependência entre capabilities (`source`)
 
-Alguns parâmetros não têm enum estático nem estado consultável isoladamente — o valor válido depende do resultado de **outra** capability (ex: `moveWindow` recebe `window`, mas os nomes de janela válidos só existem chamando `activeWindows` primeiro). Isso é indicado no catálogo com `"source": "<nomeDaCapability>"` no lugar do enum.
+Alguns parâmetros não têm enum estático nem estado consultável isoladamente — o valor válido depende do resultado de **outra** capability (ex: `moveWindow` recebe `window`, mas os nomes de janela válidos só existem chamando `activeWindows` primeiro). Isso é indicado **no catálogo** (Postgres) com `"source": "<nomeDaCapability>"` no lugar do enum — nunca no handshake.
 
 Isso não exige nenhum mecanismo novo de execução — é o mesmo problema que o caso de uso 3 do roadmap já força a resolver ("baixe o relatório, compare com o anterior"): um step do Workflow usa o resultado de outro step. `moveWindow` vira dois steps no plano do Planner: um step chamando `activeWindows` (sem parâmetro), e um segundo step chamando `moveWindow` com `window` preenchido a partir do resultado do primeiro, e `DependsOn` apontando para ele (ver [`$fromStep` em Planner e Executor](planner-and-executor.md#referência-a-resultado-de-outro-step-fromstep)). O `source` no catálogo é só a pista que evita o Planner alucinar um valor em vez de gerar o step de descoberta.
 
@@ -76,9 +73,9 @@ Isso não exige nenhum mecanismo novo de execução — é o mesmo problema que 
 
 O resultado de `activeWindows` precisa expor um campo `app` estruturado (não só o título cru da janela), para que o `match` do `$fromStep` seja uma igualdade exata em vez de uma correspondência aproximada de texto — nomes de processo variam por plataforma e por versão (`Discord.exe`, `DiscordUpdater`, `discordCanary`, etc.), e correspondência aproximada arrisca casar o processo errado silenciosamente.
 
-O client já mantém, para implementar `openApp`, uma tabela de nome canônico → identificador real do processo/bundle para cada app do enum (é o mínimo necessário para saber o que executar quando pedem `openApp("discord")`). `activeWindows` reaproveita essa mesma tabela na direção inversa: para cada janela do sistema, verifica se o processo bate com algum identificador conhecido e, se sim, popula `app` com o nome canônico correspondente (o mesmo nome usado no enum de `openApp`). Processos que não correspondem a nenhum app conhecido simplesmente não recebem `app` — não são adivinhados por aproximação.
+O client já mantém, para implementar `openApp`, uma tabela local de nome canônico → identificador real do processo/bundle (é o mínimo necessário para saber o que executar quando pedem `openApp("discord")`). Essa tabela é detalhe de implementação do client — não é anunciada no handshake nem é a fonte de schema do server. `activeWindows` reaproveita a mesma tabela na direção inversa: para cada janela do sistema, verifica se o processo bate com algum identificador conhecido e, se sim, popula `app` com o nome canônico correspondente. Processos que não correspondem a nenhum app conhecido simplesmente não recebem `app` — não são adivinhados por aproximação.
 
-Consequência: o universo de apps identificáveis em `activeWindows` é o mesmo (finito, já curado) enum de `openApp` — não é necessário reconhecer todo processo do sistema operacional, só os que o client já sabe abrir.
+Consequência: o universo de apps identificáveis em `activeWindows` é o mesmo conjunto finito que o client já sabe abrir via `openApp` — não é necessário reconhecer todo processo do sistema operacional.
 
 ## `speak` como capability
 
@@ -92,9 +89,11 @@ Conforme o catálogo de capabilities crescer, pode fazer sentido não injetar tu
 
 ## Protocolo de anúncio: handshake da conexão
 
-Capabilities são anunciadas em uma mensagem única no handshake da conexão WebSocket — não há atualização dinâmica em runtime. Se um client precisa mudar suas capabilities (ex: instalou um novo plugin), a forma de refletir isso é reconectar.
+Capabilities (só os nomes) são anunciadas na mensagem única de `auth` do WebSocket — não há atualização dinâmica em runtime nem eventos incrementais de add/remove. Mudança no *conjunto* de capabilities que o client implementa (ex: novo plugin que passa a expor tools) → reconectar e refazer o handshake.
 
-**Reconectar é o caminho simples e suficiente**: como os clients já precisam suportar reconexão (quedas de rede são esperadas), reiniciar o handshake do zero (re-anunciar todas as capabilities) é mais simples e barato do que construir eventos incrementais de adicionar/remover tools de uma sessão já estabelecida. Não há necessidade real de complexidade adicional aqui.
+Instalar/remover um app no SO **não** exige reconectar: apps não entram no anúncio; o client resolve na execução de `openApp` (ou equivalente).
+
+**Reconectar é o caminho simples e suficiente** para mudanças no conjunto de capabilities: os clients já precisam suportar reconexão (quedas de rede são esperadas), e reiniciar o handshake do zero é mais barato do que sincronizar diffs numa sessão viva.
 
 ## Detecção de desconexão: heartbeat nativo do protocolo
 
