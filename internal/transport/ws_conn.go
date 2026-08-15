@@ -15,10 +15,11 @@ import (
 )
 
 type ConnectionContext struct {
-	UserID     string
-	Username   string
-	TrustLevel auth.TrustLevel
-	GroqAPIKey string
+	UserID       string
+	Username     string
+	TrustLevel   auth.TrustLevel
+	GroqAPIKey   string
+	Capabilities []string
 }
 
 func (s *Server) handshake(ctx context.Context, conn *websocket.Conn) (*ConnectionContext, error) {
@@ -39,7 +40,8 @@ func (s *Server) handshake(ctx context.Context, conn *websocket.Conn) (*Connecti
 	}
 
 	var authPayload struct {
-		Token string `json:"token"`
+		Token        string   `json:"token"`
+		Capabilities []string `json:"capabilities"`
 	}
 	if err := json.Unmarshal(env.Payload, &authPayload); err != nil {
 		sendError(ctx, conn, "invalid payload")
@@ -50,6 +52,11 @@ func (s *Server) handshake(ctx context.Context, conn *websocket.Conn) (*Connecti
 	if err != nil {
 		sendError(ctx, conn, "invalid token")
 		return nil, err
+	}
+
+	if authPayload.Capabilities == nil {
+		sendError(ctx, conn, "invalid capabilities")
+		return nil, errors.New("invalid capabilities")
 	}
 
 	userID, err := uuid.Parse(claims.UserID)
@@ -81,10 +88,11 @@ func (s *Server) handshake(ctx context.Context, conn *websocket.Conn) (*Connecti
 	}
 
 	return &ConnectionContext{
-		UserID:     claims.UserID,
-		Username:   user.Username,
-		TrustLevel: claims.TrustLevel,
-		GroqAPIKey: groqAPIKey,
+		UserID:       claims.UserID,
+		Username:     user.Username,
+		TrustLevel:   claims.TrustLevel,
+		GroqAPIKey:   groqAPIKey,
+		Capabilities: authPayload.Capabilities,
 	}, nil
 }
 
