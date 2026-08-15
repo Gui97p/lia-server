@@ -38,6 +38,9 @@ func New(cfg *config.Config, logger *slog.Logger, deps Deps) *http.Server {
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /health", s.handleHealth)
+
+	setupMessageHandlers(s.router)
+
 	mux.HandleFunc("GET /ws", s.handleWS)
 
 	return &http.Server{
