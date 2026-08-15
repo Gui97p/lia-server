@@ -6,15 +6,25 @@ import (
 	"time"
 
 	"github.com/Gui97p/lia-server/internal/config"
+	"github.com/Gui97p/lia-server/internal/users"
 )
+
+type Deps struct {
+	UsersStore users.Store
+}
 
 type Server struct {
 	logger *slog.Logger
 	router *router
+
+	usersStore users.Store
+
+	jwtSecret     []byte
+	encryptionKey []byte
 }
 
-func New(cfg *config.Config, logger *slog.Logger) *http.Server {
-	s := &Server{logger: logger, router: newRouter()}
+func New(cfg *config.Config, logger *slog.Logger, deps Deps) *http.Server {
+	s := &Server{logger: logger, router: newRouter(), jwtSecret: cfg.JWTSecret, encryptionKey: cfg.EncryptionKey, usersStore: deps.UsersStore}
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /health", s.handleHealth)
