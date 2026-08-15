@@ -12,6 +12,7 @@ import (
 
 type Deps struct {
 	UsersStore users.Store
+	Hub        *session.Hub
 }
 
 type Server struct {
@@ -29,7 +30,7 @@ func New(cfg *config.Config, logger *slog.Logger, deps Deps) *http.Server {
 	s := &Server{
 		logger:        logger,
 		router:        newRouter(),
-		hub:           session.NewHub(),
+		hub:           deps.Hub,
 		jwtSecret:     cfg.JWTSecret,
 		encryptionKey: cfg.EncryptionKey,
 		usersStore:    deps.UsersStore,
