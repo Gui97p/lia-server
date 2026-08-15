@@ -10,8 +10,8 @@ Documentação viva do server da Lia. Cada arquivo cobre um domínio específico
 - [Planner e Executor](planner-and-executor.md) — separação planejamento/execução, estrutura de Workflow, replanning
 - [Tasks e Eventos](tasks-and-events.md) — máquina de estados, arquitetura de eventos, retries, recuperação após reboot
 - [Tools e Capabilities](tools-and-capabilities.md) — ciclo de vida de tools, registry, protocolo de reconexão
-- [Transporte e Áudio](transport-and-audio.md) — WebSocket, rotas HTTP, fluxo de áudio, wake word
+- [Transporte e Áudio](transport-and-audio.md) — WebSocket, sessões/Hub multi-device, rotas HTTP, fluxo de áudio, wake word
 - [Banco de Dados](database.md) — schema Postgres, criptografia de secrets em repouso
 - [Observabilidade](observability.md) — logging estruturado, redação de segredos
-- [Estrutura do Repositório](repo-structure.md) — organização de pastas do Go module
+- [Estrutura do Repositório](repo-structure.md) — organização de pastas; `transport/` vs `session/`
 - [Roadmap e Responsabilidades](roadmap-and-responsibilities.md) — divisão Gui/Yure, casos de uso, visão de longo prazo

@@ -38,6 +38,22 @@ Protocolo definido: **WebSocket puro** (`github.com/coder/websocket` no server �
 
 Primeira mensagem da conexão: evento `auth`, com `token` (JWT) e `capabilities` (array de nomes das tools que este client implementa). Schema e metadado das tools vêm do catálogo no Postgres — o handshake só declara suporte. Detalhes em [Tools e Capabilities](tools-and-capabilities.md#contrato-do-handshake).
 
+Resposta de sucesso: `auth.ok` com `{ "conn_id": "<uuid>" }` — identificador da **conexão** (não do user). Útil para debug e, no futuro, targeting explícito; no fluxo feliz de `tool.request` o server escolhe a conn (ver [multi-device](#sessões-e-multi-device)).
+
+### Sessões e multi-device
+
+Unidade de runtime = **conexão** (`ConnID`), não o user. O mesmo `userId` pode ter várias conns ativas (PC, notebook, bot, etc.).
+
+- `Session` — estado autenticado da conn: user, trust, Groq key decifrada, capabilities anunciadas, e um `Writer` para enviar eventos (a borda WS captura `conn` + mutex de escrita; o resto do sistema só vê `Session`).
+- `Hub` — registry em memória `ConnID → *Session` (`Register` / `Unregister` / `FindByUser` / `FindByID`). Mutex só no mapa; não segurar durante I/O.
+- Pacote: `internal/session`. Ciclo de vida do WS (Accept → handshake → Register → loop → Unregister) fica em `internal/transport`.
+
+Roteamento de tool (combinado, ainda não codificado): não é “manda pro user” — é “manda pra uma conn desse user que anunciou a capability”. MVP: preferir a conn de origem do turno; senão qualquer conn do user com a cap.
+
+Timeout só no handshake (ex.: 5s); o loop da sessão não usa esse deadline.
+
+Rotas atuais do transport: `GET /health`, `GET /ws`. Rotas de áudio abaixo ainda são alvo, não implementadas.
+
 Socket.IO foi avaliado e descartado: suporte de terceiros imaturo tanto em Go (server, via `googollee/go-socket.io`, manutenção irregular) quanto em Rust (clients) — risco alto para dependência de longo prazo. WebSocket puro ganha o determinismo do event-driven que o projeto já quer, sem depender de uma lib de compatibilidade duvidosa entre as duas linguagens.
 
 Rotas HTTP permanecem para operações pontuais:

@@ -11,7 +11,10 @@ messages       (id, user_id, role, content, created_at)
 memories       (id, user_id, group_id, scope, fact, category, created_at)
 behavior_rules (id, user_id, rule, created_at)
 tasks          (id, user_id, state, workflow, trigger_type, authorized_trust_level, created_at, updated_at)
+-- capabilities (catálogo: nome, descrição, schema, trust, source, core, …) — planejado; ainda sem migration
 ```
+
+Migrations existentes hoje: `users`, `messages`. O restante do schema acima é alvo de design; o catálogo de capabilities (ver [Tools e Capabilities](tools-and-capabilities.md#catálogo-de-capabilities-postgres-vs-registry-em-runtime-in-memory)) ainda não tem tabela.
 
 ## Secrets em repouso
 
