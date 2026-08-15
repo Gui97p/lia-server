@@ -1,4 +1,4 @@
-package transport
+package session
 
 import (
 	"context"
@@ -25,7 +25,7 @@ type Hub struct {
 	sessions map[uuid.UUID]*Session
 }
 
-func newHub() *Hub {
+func NewHub() *Hub {
 	return &Hub{
 		mtx:      sync.Mutex{},
 		sessions: make(map[uuid.UUID]*Session),

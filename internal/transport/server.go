@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/Gui97p/lia-server/internal/config"
+	"github.com/Gui97p/lia-server/internal/session"
 	"github.com/Gui97p/lia-server/internal/users"
 )
 
@@ -16,7 +17,7 @@ type Deps struct {
 type Server struct {
 	logger *slog.Logger
 	router *router
-	hub    *Hub
+	hub    *session.Hub
 
 	usersStore users.Store
 
@@ -28,7 +29,7 @@ func New(cfg *config.Config, logger *slog.Logger, deps Deps) *http.Server {
 	s := &Server{
 		logger:        logger,
 		router:        newRouter(),
-		hub:           newHub(),
+		hub:           session.NewHub(),
 		jwtSecret:     cfg.JWTSecret,
 		encryptionKey: cfg.EncryptionKey,
 		usersStore:    deps.UsersStore,
