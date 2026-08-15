@@ -67,7 +67,7 @@ Sem senha — ver [Sem login, tokens gerados via `lia-admin`](#sem-login-tokens-
 
 A API key do Groq de cada usuário é cifrada antes de ser gravada no banco — um dump do banco sozinho não deve expor as keys. Cifragem na camada da aplicação (AES-GCM) usando uma chave separada do `JWT_SECRET` (ex: `ENCRYPTION_KEY` no `.env`), não `pgcrypto` do banco — assim, mesmo com acesso ao banco, é preciso também o segredo da aplicação para decifrar.
 
-A key **não** é embutida no payload do JWT (ver seção JWT abaixo) — o servidor busca a key cifrada do banco por `user_id` sempre que precisa chamar o Groq em nome do usuário, e decifra em memória no momento do uso.
+A key **não** é embutida no payload do JWT (ver seção JWT abaixo). No handshake do WebSocket o server busca a key cifrada no banco, decifra uma vez e guarda o plaintext na `Session` da conexão (em memória de processo, só enquanto a conn vive). Threat model: dump do Postgres sozinho não basta; quem já tem RAM + `ENCRYPTION_KEY` do processo já venceu de qualquer forma. Não logar `Session` / o campo da key. Se a key for trocada via `lia-admin`, a sessão ativa pode ficar com a key antiga até reconnect (aceitável no MVP).
 
 ## Gestão de usuários
 

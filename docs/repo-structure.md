@@ -42,4 +42,4 @@ lia-server/
 - `transport/` — borda de rede: `Accept`/`Read`/`Write`/`Close` do WebSocket, handshake `auth`, envelope JSON, router de eventos, `GET /health`. Não exporta `*websocket.Conn` para o resto do sistema.
 - `session/` — unidade de conexão autenticada (`Session`: `ConnID`, user, capabilities, `Writer`) e o `Hub` (mapa `ConnID → *Session`). Agent/tools/roteamento multi-device importam `session`, nunca `transport`.
 
-Hoje o `transport.Server` cria e detém o `Hub` (Register/Unregister no ciclo de vida do WS). Quando o Executor precisar escolher uma conn por capability, o hub (ou uma interface fina) passa a ser injetado também no agent — o **tipo** continua em `session/`.
+O `Hub` é criado no `main` e injetado via `transport.Deps` (e no futuro também no agent). Register/Unregister no ciclo de vida do WS continua no transport; o **tipo** e o registry ficam em `session/`.
