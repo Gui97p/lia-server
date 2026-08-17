@@ -27,7 +27,9 @@ func (s *Server) handleMessage(ctx context.Context, sess *session.Session, paylo
 		return sendError(ctx, sess, "text required")
 	}
 
-	s.messagesStore.Save(ctx, sess.UserID, "user", messagePayload.Text)
+	if _, err := s.messagesStore.Save(ctx, sess.UserID, "user", messagePayload.Text); err != nil {
+		return sendError(ctx, sess, "failed to save message")
+	}
 
 	return sess.Writer(ctx, "message.ack", MessageAckPayload{Ok: true})
 }
