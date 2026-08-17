@@ -33,9 +33,9 @@ var usersFindCmd = &cobra.Command{
 			if err != nil {
 				return err
 			}
-			u, err = userStore.GetByID(ctx, userId)
+			u, err = usersStore.GetByID(ctx, userId)
 		} else if username != "" {
-			u, err = userStore.GetByUsername(ctx, username)
+			u, err = usersStore.GetByUsername(ctx, username)
 		}
 
 		if err != nil {
@@ -62,7 +62,7 @@ var usersCreateCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		username, _ := cmd.Flags().GetString("username")
 
-		u, err := userStore.Create(context.Background(), username)
+		u, err := usersStore.Create(context.Background(), username)
 		if err != nil {
 			return err
 		}
@@ -90,9 +90,9 @@ var usersDeleteCmd = &cobra.Command{
 			if err != nil {
 				return err
 			}
-			u, err = userStore.GetByID(ctx, userId)
+			u, err = usersStore.GetByID(ctx, userId)
 		} else if username != "" {
-			u, err = userStore.GetByUsername(ctx, username)
+			u, err = usersStore.GetByUsername(ctx, username)
 		}
 
 		if err != nil {
@@ -102,7 +102,7 @@ var usersDeleteCmd = &cobra.Command{
 			return users.ErrNotFound
 		}
 
-		err = userStore.Delete(ctx, u.ID)
+		err = usersStore.Delete(ctx, u.ID)
 		if err != nil {
 			return err
 		}
@@ -123,7 +123,7 @@ var usersSetKeyCmd = &cobra.Command{
 		key, _ := cmd.Flags().GetString("key")
 		ctx := context.Background()
 
-		u, err := userStore.GetByUsername(ctx, username)
+		u, err := usersStore.GetByUsername(ctx, username)
 		if err != nil {
 			return err
 		}
@@ -133,7 +133,7 @@ var usersSetKeyCmd = &cobra.Command{
 			return err
 		}
 
-		err = userStore.SetGroqAPIKey(ctx, u.ID, encryptedKey)
+		err = usersStore.SetGroqAPIKey(ctx, u.ID, encryptedKey)
 		if err != nil {
 			return err
 		}

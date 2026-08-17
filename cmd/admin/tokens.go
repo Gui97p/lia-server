@@ -21,7 +21,7 @@ var tokensGenerateCmd = &cobra.Command{
 		username, _ := cmd.Flags().GetString("username")
 		ctx := context.Background()
 
-		u, err := userStore.GetByUsername(ctx, username)
+		u, err := usersStore.GetByUsername(ctx, username)
 		if err != nil {
 			return err
 		}
@@ -44,12 +44,12 @@ var tokensBumpCmd = &cobra.Command{
 		username, _ := cmd.Flags().GetString("username")
 		ctx := context.Background()
 
-		u, err := userStore.GetByUsername(ctx, username)
+		u, err := usersStore.GetByUsername(ctx, username)
 		if err != nil {
 			return err
 		}
 
-		err = userStore.BumpTokenVersion(ctx, u.ID)
+		err = usersStore.BumpTokenVersion(ctx, u.ID)
 		if err != nil {
 			return err
 		}

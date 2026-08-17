@@ -10,4 +10,5 @@ var rootCmd = &cobra.Command{
 func init() {
 	rootCmd.AddCommand(usersCmd)
 	rootCmd.AddCommand(tokensCmd)
+	rootCmd.AddCommand(messagesCmd)
 }

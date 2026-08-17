@@ -7,11 +7,13 @@ import (
 
 	"github.com/Gui97p/lia-server/internal/config"
 	"github.com/Gui97p/lia-server/internal/db"
+	"github.com/Gui97p/lia-server/internal/messages"
 	"github.com/Gui97p/lia-server/internal/users"
 )
 
 var (
-	userStore     users.Store
+	usersStore    users.Store
+	messagesStore messages.Store
 	encryptionKey []byte
 	jwtSecret     []byte
 )
@@ -33,7 +35,8 @@ func main() {
 	}
 	defer pool.Close()
 
-	userStore = users.NewPostgresStore(pool)
+	usersStore = users.NewPostgresStore(pool)
+	messagesStore = messages.NewPostgresStore(pool)
 	encryptionKey = cfg.EncryptionKey
 	jwtSecret = cfg.JWTSecret
 
