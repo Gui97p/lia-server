@@ -52,6 +52,7 @@ func New(cfg *config.Config, logger *slog.Logger, deps Deps) *http.Server {
 	mux.HandleFunc("GET /health", s.handleHealth)
 
 	setupMessageHandlers(s)
+	setupToolHandlers(s)
 
 	mux.HandleFunc("GET /ws", s.handleWS)
 

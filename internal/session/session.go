@@ -18,6 +18,9 @@ type Session struct {
 	GroqAPIKey   string
 	Capabilities []string
 	Writer       Writer
+
+	pendingMu sync.Mutex
+	pending   map[string]chan ToolResult
 }
 
 type Hub struct {
