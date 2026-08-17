@@ -7,6 +7,7 @@ import (
 
 	"github.com/Gui97p/lia-server/internal/config"
 	"github.com/Gui97p/lia-server/internal/db"
+	"github.com/Gui97p/lia-server/internal/llm"
 	"github.com/Gui97p/lia-server/internal/messages"
 	"github.com/Gui97p/lia-server/internal/session"
 	"github.com/Gui97p/lia-server/internal/transport"
@@ -34,6 +35,7 @@ func main() {
 		UsersStore:    users.NewPostgresStore(pool),
 		MessagesStore: messages.NewPostgresStore(pool),
 		Hub:           session.NewHub(),
+		LLMClient:     &llm.GroqClient{},
 	})
 
 	logger.Info("server starting", "port", cfg.Port)

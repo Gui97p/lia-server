@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/Gui97p/lia-server/internal/config"
+	"github.com/Gui97p/lia-server/internal/llm"
 	"github.com/Gui97p/lia-server/internal/messages"
 	"github.com/Gui97p/lia-server/internal/session"
 	"github.com/Gui97p/lia-server/internal/users"
@@ -15,6 +16,7 @@ type Deps struct {
 	UsersStore    users.Store
 	MessagesStore messages.Store
 	Hub           *session.Hub
+	LLMClient     llm.Client
 }
 
 type Server struct {
@@ -24,6 +26,8 @@ type Server struct {
 
 	usersStore    users.Store
 	messagesStore messages.Store
+
+	llmClient llm.Client
 
 	jwtSecret     []byte
 	encryptionKey []byte
@@ -37,6 +41,8 @@ func New(cfg *config.Config, logger *slog.Logger, deps Deps) *http.Server {
 
 		usersStore:    deps.UsersStore,
 		messagesStore: deps.MessagesStore,
+
+		llmClient: deps.LLMClient,
 
 		jwtSecret:     cfg.JWTSecret,
 		encryptionKey: cfg.EncryptionKey,
