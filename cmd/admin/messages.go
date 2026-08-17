@@ -27,6 +27,9 @@ var messagesListCmd = &cobra.Command{
 		}
 
 		messages, err := messagesStore.ListByUser(ctx, u.ID, limit)
+		if err != nil {
+			return err
+		}
 
 		fmt.Printf("Listing messages for user id=%s\n\n", u.ID)
 		for _, message := range messages {
@@ -41,7 +44,7 @@ func init() {
 	messagesListCmd.Flags().String("username", "", "target's username")
 	messagesListCmd.MarkFlagRequired("username")
 
-	messagesListCmd.Flags().Int("limit", 5, "target's username")
+	messagesListCmd.Flags().Int("limit", 5, "max number of messages to show")
 
 	messagesCmd.AddCommand(messagesListCmd)
 }
