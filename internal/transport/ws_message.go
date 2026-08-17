@@ -16,7 +16,7 @@ type MessageAckPayload struct {
 	Ok bool `json:"ok"`
 }
 
-func messageHandler(ctx context.Context, sess *session.Session, payload json.RawMessage) error {
+func (s *Server) handleMessage(ctx context.Context, sess *session.Session, payload json.RawMessage) error {
 	messagePayload := MessagePayload{}
 
 	if err := json.Unmarshal(payload, &messagePayload); err != nil {
@@ -27,9 +27,11 @@ func messageHandler(ctx context.Context, sess *session.Session, payload json.Raw
 		return sendError(ctx, sess, "text required")
 	}
 
+	s.messagesStore.Save(ctx, sess.UserID, "user", messagePayload.Text)
+
 	return sess.Writer(ctx, "message.ack", MessageAckPayload{Ok: true})
 }
 
-func setupMessageHandlers(r *router) {
-	r.register("message", messageHandler)
+func setupMessageHandlers(s *Server) {
+	s.router.register("message", s.handleMessage)
 }

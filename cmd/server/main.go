@@ -7,6 +7,7 @@ import (
 
 	"github.com/Gui97p/lia-server/internal/config"
 	"github.com/Gui97p/lia-server/internal/db"
+	"github.com/Gui97p/lia-server/internal/messages"
 	"github.com/Gui97p/lia-server/internal/session"
 	"github.com/Gui97p/lia-server/internal/transport"
 	"github.com/Gui97p/lia-server/internal/users"
@@ -30,8 +31,9 @@ func main() {
 	defer pool.Close()
 
 	app := transport.New(cfg, logger, transport.Deps{
-		UsersStore: users.NewPostgresStore(pool),
-		Hub:        session.NewHub(),
+		UsersStore:    users.NewPostgresStore(pool),
+		MessagesStore: messages.NewPostgresStore(pool),
+		Hub:           session.NewHub(),
 	})
 
 	logger.Info("server starting", "port", cfg.Port)

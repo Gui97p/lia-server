@@ -15,7 +15,7 @@ func NewPostgresStore(pool *pgxpool.Pool) *PostgresStore {
 	return &PostgresStore{pool: pool}
 }
 
-func (s *PostgresStore) Save(ctx context.Context, userID *uuid.UUID, role, content string) (*Message, error) {
+func (s *PostgresStore) Save(ctx context.Context, userID uuid.UUID, role, content string) (*Message, error) {
 	var m Message
 	err := s.pool.QueryRow(ctx,
 		`INSERT INTO messages (user_id, role, content) VALUES ($1, $2, $3) 
