@@ -53,17 +53,25 @@ func (s *Server) handleMessage(ctx context.Context, sess *session.Session, paylo
 		})
 	}
 
-	response, err := s.llmClient.Complete(ctx, sess.GroqAPIKey, messages)
+	reply, step, err := s.planner.Plan(ctx, sess.GroqAPIKey, messages, sess.Capabilities)
 	if err != nil {
-		return sendError(ctx, sess, fmt.Sprintf("failed to get response: %s", err))
+		return sendError(ctx, sess, fmt.Sprintf("failed to plan: %s", err))
 	}
 
-	_, err = s.messagesStore.Save(ctx, sess.UserID, "assistant", response)
-	if err != nil {
+	if step != nil {
+		result, err := s.executor.Execute(ctx, sess, step)
+		if err != nil {
+			return sendError(ctx, sess, fmt.Sprintf("failed to execute %s: %s", step.Capability, err))
+		}
+		_ = result
+		reply = fmt.Sprintf("%s executed successfully", step.Capability)
+	}
+
+	if _, err = s.messagesStore.Save(ctx, sess.UserID, "assistant", reply); err != nil {
 		return sendError(ctx, sess, "failed to save response message")
 	}
 
-	return sess.Writer(ctx, "message.reply", response)
+	return sess.Writer(ctx, "message.reply", reply)
 }
 
 func setupMessageHandlers(s *Server) {

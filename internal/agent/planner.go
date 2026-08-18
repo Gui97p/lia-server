@@ -11,6 +11,10 @@ type Planner struct {
 	LLMClient llm.Client
 }
 
+func NewPlanner(llmClient llm.Client) *Planner {
+	return &Planner{LLMClient: llmClient}
+}
+
 func (p *Planner) Plan(ctx context.Context, apiKey string, history []llm.Message, capabilities []string) (reply string, step *Step, err error) {
 	var tools []llm.ToolDefinition
 	for _, cap := range capabilities {
