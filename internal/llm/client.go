@@ -14,8 +14,8 @@ type ToolCall struct {
 }
 
 type CompletionResult struct {
-	Content  string
-	ToolCall *ToolCall
+	Content   string
+	ToolCalls []ToolCall
 }
 
 type Message struct {

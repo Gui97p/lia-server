@@ -49,7 +49,7 @@ type groqChatCompletionResponse struct {
 }
 
 func (c *GroqClient) Complete(ctx context.Context, apiKey string, messages []Message, tools []ToolDefinition) (*CompletionResult, error) {
-	var groqTools []groqTool
+	groqTools := make([]groqTool, 0, len(tools))
 	for _, t := range tools {
 		groqTools = append(groqTools, groqTool{
 			Type: "function",
@@ -105,15 +105,18 @@ func (c *GroqClient) Complete(ctx context.Context, apiKey string, messages []Mes
 
 	msg := completion.Choices[0].Message
 	if len(msg.ToolCalls) > 0 {
-		call := msg.ToolCalls[0]
+		toolCalls := make([]ToolCall, 0, len(msg.ToolCalls))
+		for _, call := range msg.ToolCalls {
+			var params map[string]any
+			if err := json.Unmarshal([]byte(call.Function.Arguments), &params); err != nil {
+				return nil, fmt.Errorf("invalid tool call arguments: %w", err)
+			}
 
-		var params map[string]any
-		if err := json.Unmarshal([]byte(call.Function.Arguments), &params); err != nil {
-			return nil, fmt.Errorf("invalid tool call arguments: %w", err)
+			toolCalls = append(toolCalls, ToolCall{Name: call.Function.Name, Params: params})
 		}
 
 		return &CompletionResult{
-			ToolCall: &ToolCall{Name: call.Function.Name, Params: params},
+			ToolCalls: toolCalls,
 		}, nil
 	}
 

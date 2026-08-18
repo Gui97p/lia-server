@@ -11,6 +11,7 @@ import (
 	"github.com/Gui97p/lia-server/internal/llm"
 	"github.com/Gui97p/lia-server/internal/messages"
 	"github.com/Gui97p/lia-server/internal/session"
+	"github.com/Gui97p/lia-server/internal/tasks"
 	"github.com/Gui97p/lia-server/internal/transport"
 	"github.com/Gui97p/lia-server/internal/users"
 )
@@ -35,6 +36,7 @@ func main() {
 	app := transport.New(cfg, logger, transport.Deps{
 		UsersStore:    users.NewPostgresStore(pool),
 		MessagesStore: messages.NewPostgresStore(pool),
+		TasksStore:    tasks.NewPostgresStore(pool),
 		Hub:           session.NewHub(),
 		PlanningQueue: agent.NewPlanningQueue(agent.NewPlanner(&llm.GroqClient{})),
 		Executor:      agent.NewExecutor(),

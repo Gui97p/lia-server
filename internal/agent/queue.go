@@ -24,9 +24,9 @@ type planJob struct {
 }
 
 type PlanResult struct {
-	Reply string
-	Step  *Step
-	Err   error
+	Reply    string
+	Workflow *Workflow
+	Err      error
 }
 
 func NewPlanningQueue(planner *Planner) *PlanningQueueManager {
@@ -35,8 +35,8 @@ func NewPlanningQueue(planner *Planner) *PlanningQueueManager {
 
 func (p *PlanningQueueManager) worker(ch chan planJob) {
 	for job := range ch {
-		reply, step, err := p.planner.Plan(job.ctx, job.apiKey, job.history, job.capabilities)
-		job.result <- PlanResult{Reply: reply, Step: step, Err: err}
+		reply, workflow, err := p.planner.Plan(job.ctx, job.apiKey, job.history, job.capabilities)
+		job.result <- PlanResult{Reply: reply, Workflow: workflow, Err: err}
 	}
 }
 

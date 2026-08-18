@@ -9,6 +9,7 @@ import (
 
 	"github.com/Gui97p/lia-server/internal/llm"
 	"github.com/Gui97p/lia-server/internal/session"
+	"github.com/Gui97p/lia-server/internal/tasks"
 )
 
 type MessagePayload struct {
@@ -53,6 +54,15 @@ func (s *Server) handleMessage(ctx context.Context, sess *session.Session, paylo
 		})
 	}
 
+	task, err := s.tasksStore.Create(ctx, sess.UserID, tasks.User, sess.TrustLevel)
+	if err != nil {
+		return sendError(ctx, sess, "failed to create task")
+	}
+
+	if err := s.tasksStore.SetState(ctx, task.ID, tasks.Planning); err != nil {
+		s.logger.Warn("error on update task state", "error", err, "task_id", task.ID)
+	}
+
 	result := s.planningQueue.Submit(ctx, sess.UserID, sess.GroqAPIKey, messages, sess.Capabilities)
 	if result == nil {
 		return sendError(ctx, sess, "queue unavaiable, try again")
@@ -62,13 +72,36 @@ func (s *Server) handleMessage(ctx context.Context, sess *session.Session, paylo
 		return sendError(ctx, sess, fmt.Sprintf("failed to plan: %s", result.Err))
 	}
 
-	if result.Step != nil {
-		toolResult, err := s.executor.Execute(ctx, sess, result.Step)
+	if err := s.tasksStore.SetState(ctx, task.ID, tasks.Ready); err != nil {
+		s.logger.Warn("error on update task state", "error", err, "task_id", task.ID)
+	}
+
+	if result.Workflow != nil {
+		workflowJSON, err := json.Marshal(result.Workflow)
 		if err != nil {
-			return sendError(ctx, sess, fmt.Sprintf("failed to execute %s: %s", result.Step.Capability, err))
+			return sendError(ctx, sess, "failed to encode workflow")
 		}
-		_ = toolResult
-		result.Reply = fmt.Sprintf("%s executed successfully", result.Step.Capability)
+
+		if err := s.tasksStore.SetWorkflow(ctx, task.ID, workflowJSON); err != nil {
+			s.logger.Warn("error on update task workflow", "error", err, "task_id", task.ID)
+		}
+
+		if err := s.tasksStore.SetState(ctx, task.ID, tasks.Running); err != nil {
+			s.logger.Warn("error on update task state", "error", err, "task_id", task.ID)
+		}
+
+		toolResults, err := s.executor.Execute(ctx, sess, result.Workflow)
+		if err != nil {
+			return sendError(ctx, sess, "failed to execute task")
+		}
+		for _, toolResult := range toolResults {
+			_ = toolResult
+			result.Reply = fmt.Sprintf("task %s executed successfully", task.ID)
+		}
+
+		if err := s.tasksStore.SetState(ctx, task.ID, tasks.Completed); err != nil {
+			s.logger.Warn("error on update task state", "error", err, "task_id", task.ID)
+		}
 	}
 
 	if _, err = s.messagesStore.Create(ctx, sess.UserID, "assistant", result.Reply); err != nil {

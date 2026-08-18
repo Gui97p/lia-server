@@ -9,12 +9,14 @@ import (
 	"github.com/Gui97p/lia-server/internal/config"
 	"github.com/Gui97p/lia-server/internal/messages"
 	"github.com/Gui97p/lia-server/internal/session"
+	"github.com/Gui97p/lia-server/internal/tasks"
 	"github.com/Gui97p/lia-server/internal/users"
 )
 
 type Deps struct {
 	UsersStore    users.Store
 	MessagesStore messages.Store
+	TasksStore    tasks.Store
 	Hub           *session.Hub
 	PlanningQueue *agent.PlanningQueueManager
 	Executor      *agent.Executor
@@ -27,6 +29,7 @@ type Server struct {
 
 	usersStore    users.Store
 	messagesStore messages.Store
+	tasksStore    tasks.Store
 
 	planningQueue *agent.PlanningQueueManager
 	executor      *agent.Executor
@@ -43,6 +46,7 @@ func New(cfg *config.Config, logger *slog.Logger, deps Deps) *http.Server {
 
 		usersStore:    deps.UsersStore,
 		messagesStore: deps.MessagesStore,
+		tasksStore:    deps.TasksStore,
 
 		planningQueue: deps.PlanningQueue,
 		executor:      deps.Executor,
