@@ -16,6 +16,6 @@ type Message struct {
 }
 
 type Store interface {
-	Save(ctx context.Context, userID uuid.UUID, role, content string) (*Message, error)
+	Create(ctx context.Context, userID uuid.UUID, role, content string) (*Message, error)
 	ListByUser(ctx context.Context, userID uuid.UUID, limit int) ([]Message, error)
 }

@@ -13,6 +13,8 @@ type PostgresStore struct {
 	pool *pgxpool.Pool
 }
 
+var _ Store = (*PostgresStore)(nil)
+
 func NewPostgresStore(pool *pgxpool.Pool) *PostgresStore {
 	return &PostgresStore{pool: pool}
 }

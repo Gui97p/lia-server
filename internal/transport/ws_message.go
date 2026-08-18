@@ -30,7 +30,7 @@ func (s *Server) handleMessage(ctx context.Context, sess *session.Session, paylo
 		return sendError(ctx, sess, "text required")
 	}
 
-	if _, err := s.messagesStore.Save(ctx, sess.UserID, "user", messagePayload.Text); err != nil {
+	if _, err := s.messagesStore.Create(ctx, sess.UserID, "user", messagePayload.Text); err != nil {
 		return sendError(ctx, sess, "failed to save message")
 	}
 
@@ -71,7 +71,7 @@ func (s *Server) handleMessage(ctx context.Context, sess *session.Session, paylo
 		result.Reply = fmt.Sprintf("%s executed successfully", result.Step.Capability)
 	}
 
-	if _, err = s.messagesStore.Save(ctx, sess.UserID, "assistant", result.Reply); err != nil {
+	if _, err = s.messagesStore.Create(ctx, sess.UserID, "assistant", result.Reply); err != nil {
 		return sendError(ctx, sess, "failed to save response message")
 	}
 
