@@ -1,7 +1,7 @@
 CREATE TABLE tasks (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID REFERENCES users(id) ON DELETE SET NULL,
-    state TEXT NOT NULL CHECK(state IN ('CREATED', 'PLANNING', 'READY', 'RUNNING', 'WAITING', 'BLOCKED', 'REPLANNING', 'COMPLETED', 'FAILED', 'CANCELLED')),
+    state TEXT NOT NULL CHECK(state IN ('created', 'planning', 'ready', 'running', 'waiting', 'blocked', 'replanning', 'completed', 'failed', 'cancelled')),
     workflow JSONB,
     trigger_type TEXT NOT NULL CHECK(trigger_type IN ('user', 'scheduled', 'event')),
     authorized_trust_level TEXT NOT NULL CHECK(authorized_trust_level IN ('anonymous', 'identified', 'authenticated', 'trusted')),
