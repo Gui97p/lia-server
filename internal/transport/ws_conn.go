@@ -143,8 +143,10 @@ func (s *Server) handleWS(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			break
 		}
-		if err := s.router.dispatch(ctx, sess, data); err != nil {
-			break
-		}
+		go func(data []byte) {
+			if err := s.router.dispatch(ctx, sess, data); err != nil {
+				s.logger.Error("dispatch failed", "error", err)
+			}
+		}(data)
 	}
 }
