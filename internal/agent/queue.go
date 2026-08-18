@@ -24,25 +24,25 @@ type planJob struct {
 }
 
 type PlanResult struct {
-	reply string
-	step  *Step
-	err   error
+	Reply string
+	Step  *Step
+	Err   error
+}
+
+func NewPlanningQueue(planner *Planner) *PlanningQueueManager {
+	return &PlanningQueueManager{planner: planner, queues: make(map[uuid.UUID]chan planJob)}
 }
 
 func (p *PlanningQueueManager) worker(ch chan planJob) {
 	for job := range ch {
 		reply, step, err := p.planner.Plan(job.ctx, job.apiKey, job.history, job.capabilities)
-		job.result <- PlanResult{reply: reply, step: step, err: err}
+		job.result <- PlanResult{Reply: reply, Step: step, Err: err}
 	}
 }
 
 func (p *PlanningQueueManager) EnsureStarted(userID uuid.UUID) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
-
-	if p.queues == nil {
-		p.queues = make(map[uuid.UUID]chan planJob)
-	}
 
 	if p.queues[userID] == nil {
 		p.queues[userID] = make(chan planJob)

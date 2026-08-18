@@ -16,7 +16,7 @@ type Deps struct {
 	UsersStore    users.Store
 	MessagesStore messages.Store
 	Hub           *session.Hub
-	Planner       *agent.Planner
+	PlanningQueue *agent.PlanningQueueManager
 	Executor      *agent.Executor
 }
 
@@ -28,8 +28,8 @@ type Server struct {
 	usersStore    users.Store
 	messagesStore messages.Store
 
-	planner  *agent.Planner
-	executor *agent.Executor
+	planningQueue *agent.PlanningQueueManager
+	executor      *agent.Executor
 
 	jwtSecret     []byte
 	encryptionKey []byte
@@ -44,8 +44,8 @@ func New(cfg *config.Config, logger *slog.Logger, deps Deps) *http.Server {
 		usersStore:    deps.UsersStore,
 		messagesStore: deps.MessagesStore,
 
-		planner:  deps.Planner,
-		executor: deps.Executor,
+		planningQueue: deps.PlanningQueue,
+		executor:      deps.Executor,
 
 		jwtSecret:     cfg.JWTSecret,
 		encryptionKey: cfg.EncryptionKey,

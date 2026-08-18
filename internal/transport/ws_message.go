@@ -53,25 +53,29 @@ func (s *Server) handleMessage(ctx context.Context, sess *session.Session, paylo
 		})
 	}
 
-	reply, step, err := s.planner.Plan(ctx, sess.GroqAPIKey, messages, sess.Capabilities)
-	if err != nil {
-		return sendError(ctx, sess, fmt.Sprintf("failed to plan: %s", err))
+	result := s.planningQueue.Submit(ctx, sess.UserID, sess.GroqAPIKey, messages, sess.Capabilities)
+	if result == nil {
+		return sendError(ctx, sess, "queue unavaiable, try again")
 	}
 
-	if step != nil {
-		result, err := s.executor.Execute(ctx, sess, step)
+	if result.Err != nil {
+		return sendError(ctx, sess, fmt.Sprintf("failed to plan: %s", result.Err))
+	}
+
+	if result.Step != nil {
+		toolResult, err := s.executor.Execute(ctx, sess, result.Step)
 		if err != nil {
-			return sendError(ctx, sess, fmt.Sprintf("failed to execute %s: %s", step.Capability, err))
+			return sendError(ctx, sess, fmt.Sprintf("failed to execute %s: %s", result.Step.Capability, err))
 		}
-		_ = result
-		reply = fmt.Sprintf("%s executed successfully", step.Capability)
+		_ = toolResult
+		result.Reply = fmt.Sprintf("%s executed successfully", result.Step.Capability)
 	}
 
-	if _, err = s.messagesStore.Save(ctx, sess.UserID, "assistant", reply); err != nil {
+	if _, err = s.messagesStore.Save(ctx, sess.UserID, "assistant", result.Reply); err != nil {
 		return sendError(ctx, sess, "failed to save response message")
 	}
 
-	return sess.Writer(ctx, "message.reply", reply)
+	return sess.Writer(ctx, "message.reply", result.Reply)
 }
 
 func setupMessageHandlers(s *Server) {

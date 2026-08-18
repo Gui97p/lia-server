@@ -36,7 +36,7 @@ func main() {
 		UsersStore:    users.NewPostgresStore(pool),
 		MessagesStore: messages.NewPostgresStore(pool),
 		Hub:           session.NewHub(),
-		Planner:       agent.NewPlanner(&llm.GroqClient{}),
+		PlanningQueue: agent.NewPlanningQueue(agent.NewPlanner(&llm.GroqClient{})),
 		Executor:      agent.NewExecutor(),
 	})
 

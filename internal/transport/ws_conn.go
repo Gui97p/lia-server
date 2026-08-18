@@ -128,6 +128,8 @@ func (s *Server) handleWS(w http.ResponseWriter, r *http.Request) {
 	defer conn.CloseNow()
 
 	s.hub.Register(sess.ConnID, sess)
+	s.planningQueue.EnsureStarted(sess.UserID)
+	defer s.planningQueue.StopIfUnused(sess.UserID, s.hub)
 	defer s.hub.Unregister(sess.ConnID)
 
 	type AuthResponse struct {
