@@ -42,7 +42,7 @@ func main() {
 		TasksStore:    tasks.NewPostgresStore(pool),
 		TTSClient:     audio.NewEdgeTTSClient("pt-BR-FranciscaNeural"),
 		Hub:           session.NewHub(),
-		PlanningQueue: agent.NewPlanningQueue(agent.NewPlanner(llm.NewGroqClient(logger))),
+		PlanningQueue: agent.NewPlanningQueue(agent.NewPlanner(llm.NewGroqClient("qwen/qwen3.6-27b", logger))),
 		Executor:      agent.NewExecutor(messagesStore),
 	})
 

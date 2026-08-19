@@ -16,11 +16,12 @@ import (
 const maxRateLimitRetries = 3
 
 type GroqClient struct {
+	Model  string
 	Logger *slog.Logger
 }
 
-func NewGroqClient(logger *slog.Logger) *GroqClient {
-	return &GroqClient{Logger: logger}
+func NewGroqClient(model string, logger *slog.Logger) *GroqClient {
+	return &GroqClient{Model: model, Logger: logger}
 }
 
 type groqFunctionDef struct {
@@ -81,7 +82,7 @@ func (c *GroqClient) Complete(ctx context.Context, apiKey string, messages []Mes
 	}
 
 	requestBody, err := json.Marshal(groqChatCompletionRequest{
-		Model:             "qwen/qwen3.6-27b",
+		Model:             c.Model,
 		Messages:          messages,
 		Tools:             groqTools,
 		ParallelToolCalls: true,
