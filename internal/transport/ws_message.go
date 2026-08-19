@@ -31,16 +31,20 @@ func (s *Server) handleMessage(ctx context.Context, sess *session.Session, paylo
 		return sendError(ctx, sess, "text required")
 	}
 
-	if _, err := s.messagesStore.Create(ctx, sess.UserID, "user", messagePayload.Text); err != nil {
+	task, err := s.tasksStore.Create(ctx, sess.UserID, tasks.User, sess.TrustLevel)
+	if err != nil {
+		return sendError(ctx, sess, "failed to create task")
+	}
+
+	if _, err := s.messagesStore.Create(ctx, sess.UserID, "user", messagePayload.Text, task.ID); err != nil {
 		return sendError(ctx, sess, "failed to save message")
 	}
 
-	err := sess.Writer(ctx, "message.ack", MessageAckPayload{Ok: true})
-	if err != nil {
+	if err := sess.Writer(ctx, "message.ack", MessageAckPayload{Ok: true}); err != nil {
 		return sendError(ctx, sess, "failed to send event")
 	}
 
-	latestMessages, err := s.messagesStore.ListByUser(ctx, sess.UserID, 20)
+	latestMessages, err := s.messagesStore.ListByTask(ctx, sess.UserID, task.ID, 20)
 	if err != nil {
 		return sendError(ctx, sess, "failed to fetch messages")
 	}
@@ -52,11 +56,6 @@ func (s *Server) handleMessage(ctx context.Context, sess *session.Session, paylo
 			Role:    message.Role,
 			Content: message.Content,
 		})
-	}
-
-	task, err := s.tasksStore.Create(ctx, sess.UserID, tasks.User, sess.TrustLevel)
-	if err != nil {
-		return sendError(ctx, sess, "failed to create task")
 	}
 
 	if err := s.tasksStore.SetState(ctx, task.ID, tasks.Planning); err != nil {
@@ -108,7 +107,7 @@ func (s *Server) handleMessage(ctx context.Context, sess *session.Session, paylo
 		}
 	}
 
-	if _, err = s.messagesStore.Create(ctx, sess.UserID, "assistant", result.Reply); err != nil {
+	if _, err = s.messagesStore.Create(ctx, sess.UserID, "assistant", result.Reply, task.ID); err != nil {
 		if stateErr := s.tasksStore.SetState(ctx, task.ID, tasks.Failed); stateErr != nil {
 			s.logger.Warn("error on update task state", "error", stateErr, "task_id", task.ID)
 		}
