@@ -2,6 +2,7 @@ package agent
 
 import (
 	"context"
+	"errors"
 
 	"github.com/Gui97p/lia-server/internal/llm"
 	"github.com/google/uuid"
@@ -18,6 +19,11 @@ func NewPlanner(llmClient llm.Client) *Planner {
 }
 
 func (p *Planner) Plan(ctx context.Context, apiKey string, history []llm.Message, capabilities []string) (*Workflow, error) {
+	history = append([]llm.Message{{
+		Role:    "system",
+		Content: SystemPrompt,
+	}}, history...)
+
 	var tools []llm.ToolDefinition
 	for _, cap := range capabilities {
 		if def, ok := knownCapabilities[cap]; ok {
@@ -54,6 +60,10 @@ func (p *Planner) Plan(ctx context.Context, apiKey string, history []llm.Message
 				"mode": "fire_and_forget",
 			},
 		})
+	}
+
+	if len(workflow.Steps) == 0 {
+		return nil, errors.New("model returned an empty plan")
 	}
 
 	return &workflow, nil
