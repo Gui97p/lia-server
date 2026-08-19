@@ -7,10 +7,21 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
+	"strconv"
+	"time"
 )
 
-type GroqClient struct{}
+const maxRateLimitRetries = 3
+
+type GroqClient struct {
+	Logger *slog.Logger
+}
+
+func NewGroqClient(logger *slog.Logger) *GroqClient {
+	return &GroqClient{Logger: logger}
+}
 
 type groqFunctionDef struct {
 	Name        string         `json:"name"`
@@ -28,6 +39,7 @@ type groqChatCompletionRequest struct {
 	Messages          []Message  `json:"messages"`
 	Tools             []groqTool `json:"tools,omitempty"`
 	ParallelToolCalls bool       `json:"parallel_tool_calls"`
+	ReasoningFormat   string     `json:"reasoning_format,omitempty"`
 }
 
 type groqToolCall struct {
@@ -40,6 +52,7 @@ type groqToolCall struct {
 type groqMessage struct {
 	Role      string         `json:"role"`
 	Content   string         `json:"content"`
+	Reasoning string         `json:"reasoning,omitempty"`
 	ToolCalls []groqToolCall `json:"tool_calls,omitempty"`
 }
 
@@ -47,6 +60,11 @@ type groqChatCompletionResponse struct {
 	Choices []struct {
 		Message groqMessage `json:"message"`
 	} `json:"choices"`
+	Usage struct {
+		PromptTokens     int `json:"prompt_tokens"`
+		CompletionTokens int `json:"completion_tokens"`
+		TotalTokens      int `json:"total_tokens"`
+	} `json:"usage"`
 }
 
 func (c *GroqClient) Complete(ctx context.Context, apiKey string, messages []Message, tools []ToolDefinition) (*CompletionResult, error) {
@@ -67,33 +85,15 @@ func (c *GroqClient) Complete(ctx context.Context, apiKey string, messages []Mes
 		Messages:          messages,
 		Tools:             groqTools,
 		ParallelToolCalls: true,
+		ReasoningFormat:   "parsed",
 	})
 	if err != nil {
 		return nil, err
 	}
 
-	client := http.Client{}
-
-	request, err := http.NewRequestWithContext(ctx, "POST", "https://api.groq.com/openai/v1/chat/completions", bytes.NewBuffer(requestBody))
+	data, err := c.doWithRateLimitRetry(ctx, apiKey, requestBody)
 	if err != nil {
 		return nil, err
-	}
-	request.Header.Set("Content-type", "application/json")
-	request.Header.Set("Authorization", fmt.Sprintf("Bearer %s", apiKey))
-
-	res, err := client.Do(request)
-	if err != nil {
-		return nil, err
-	}
-	defer res.Body.Close()
-
-	data, err := io.ReadAll(res.Body)
-	if err != nil {
-		return nil, err
-	}
-
-	if res.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("groq api error: status %d, body %s", res.StatusCode, data)
 	}
 
 	var completion groqChatCompletionResponse
@@ -106,6 +106,17 @@ func (c *GroqClient) Complete(ctx context.Context, apiKey string, messages []Mes
 	}
 
 	msg := completion.Choices[0].Message
+
+	if c.Logger != nil {
+		c.Logger.Info("groq completion",
+			"reasoning", msg.Reasoning,
+			"content", msg.Content,
+			"tool_calls", len(msg.ToolCalls),
+			"prompt_tokens", completion.Usage.PromptTokens,
+			"completion_tokens", completion.Usage.CompletionTokens,
+			"total_tokens", completion.Usage.TotalTokens,
+		)
+	}
 	if len(msg.ToolCalls) > 0 {
 		toolCalls := make([]ToolCall, 0, len(msg.ToolCalls))
 		for _, call := range msg.ToolCalls {
@@ -123,4 +134,58 @@ func (c *GroqClient) Complete(ctx context.Context, apiKey string, messages []Mes
 	}
 
 	return &CompletionResult{Content: msg.Content}, nil
+}
+
+func (c *GroqClient) doWithRateLimitRetry(ctx context.Context, apiKey string, requestBody []byte) ([]byte, error) {
+	client := http.Client{}
+
+	for attempt := 0; ; attempt++ {
+		request, err := http.NewRequestWithContext(ctx, "POST", "https://api.groq.com/openai/v1/chat/completions", bytes.NewBuffer(requestBody))
+		if err != nil {
+			return nil, err
+		}
+		request.Header.Set("Content-type", "application/json")
+		request.Header.Set("Authorization", fmt.Sprintf("Bearer %s", apiKey))
+
+		res, err := client.Do(request)
+		if err != nil {
+			return nil, err
+		}
+
+		data, err := io.ReadAll(res.Body)
+		res.Body.Close()
+		if err != nil {
+			return nil, err
+		}
+
+		if res.StatusCode == http.StatusOK {
+			return data, nil
+		}
+
+		if res.StatusCode == http.StatusTooManyRequests && attempt < maxRateLimitRetries {
+			wait := retryAfterDuration(res.Header.Get("Retry-After"))
+			if c.Logger != nil {
+				c.Logger.Warn("groq rate limited, retrying", "attempt", attempt+1, "wait", wait, "body", string(data))
+			}
+			select {
+			case <-ctx.Done():
+				return nil, ctx.Err()
+			case <-time.After(wait):
+			}
+			continue
+		}
+
+		if res.StatusCode == http.StatusTooManyRequests {
+			return nil, fmt.Errorf("groq rate limit exceeded, try again shortly")
+		}
+
+		return nil, fmt.Errorf("groq api error: status %d, body %s", res.StatusCode, data)
+	}
+}
+
+func retryAfterDuration(header string) time.Duration {
+	if seconds, err := strconv.Atoi(header); err == nil && seconds > 0 {
+		return time.Duration(seconds) * time.Second
+	}
+	return 2 * time.Second
 }
