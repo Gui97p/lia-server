@@ -13,6 +13,18 @@ type AudioTranscribeResponse struct {
 	Text string `json:"text"`
 }
 
+// @Summary      Transcreve áudio
+// @Description  Recebe arquivo de áudio e retorna texto transcrito via Whisper
+// @Tags         audio
+// @Accept       application/octet-stream
+// @Produce      json
+// @Param        format  query   string  false  "Formato do áudio (wav, mp3, webm, flac, m4a). Se omitido, detectado pelo Content-Type"
+// @Success      200  {object}  AudioTranscribeResponse
+// @Failure      400  {string}  string  "audio required / format required / api key not set"
+// @Failure      401  {string}  string  "missing token / invalid token"
+// @Failure      500  {string}  string  "failed to transcribe speech"
+// @Security     BearerAuth
+// @Router       /audio/transcribe [post]
 func (s *Server) handleAudioTranscribe(w http.ResponseWriter, r *http.Request) {
 	user, ok := userFromContext(r.Context())
 	if !ok {

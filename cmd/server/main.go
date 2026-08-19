@@ -17,6 +17,14 @@ import (
 	"github.com/Gui97p/lia-server/internal/users"
 )
 
+// @title          Lia Server API
+// @version        0.5
+// @description    Server Backend da Lia
+// @host           localhost:3000
+// @BasePath       /
+// @securityDefinitions.apikey BearerAuth
+// @in header
+// @name Authorization
 func main() {
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 	ctx := context.Background()

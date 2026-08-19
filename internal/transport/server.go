@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"time"
 
+	_ "github.com/Gui97p/lia-server/docs/swagger"
 	"github.com/Gui97p/lia-server/internal/agent"
 	"github.com/Gui97p/lia-server/internal/audio"
 	"github.com/Gui97p/lia-server/internal/config"
@@ -65,7 +66,19 @@ func New(cfg *config.Config, logger *slog.Logger, deps Deps) *http.Server {
 	}
 
 	mux := http.NewServeMux()
+	mux.Handle("GET /docs/swagger/", http.StripPrefix("/docs/swagger/", http.FileServer(http.Dir("docs/swagger"))))
 	mux.HandleFunc("GET /health", s.handleHealth)
+	mux.HandleFunc("GET /docs/", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/html")
+		w.Write([]byte(`<!DOCTYPE html>
+	<html>
+	<head><title>Lia API</title></head>
+	<body>
+	<script id="api-reference" data-url="/docs/swagger/swagger.json"></script>
+	<script src="https://cdn.jsdelivr.net/npm/@scalar/api-reference"></script>
+	</body>
+	</html>`))
+	})
 
 	mux.HandleFunc("POST /audio/tts", s.withAuth(s.handleAudioTTS))
 	mux.HandleFunc("POST /audio/transcribe", s.withAuth(s.handleAudioTranscribe))

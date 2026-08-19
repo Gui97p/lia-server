@@ -1,0 +1,111 @@
+basePath: /
+definitions:
+  transport.AudioTTSPayload:
+    properties:
+      text:
+        type: string
+    type: object
+  transport.AudioTranscribeResponse:
+    properties:
+      text:
+        type: string
+    type: object
+host: localhost:3000
+info:
+  contact: {}
+  description: Server Backend da Lia
+  title: Lia Server API
+  version: "0.5"
+paths:
+  /audio/transcribe:
+    post:
+      consumes:
+      - application/octet-stream
+      description: Recebe arquivo de áudio e retorna texto transcrito via Whisper
+      parameters:
+      - description: Formato do áudio (wav, mp3, webm, flac, m4a). Se omitido, detectado
+          pelo Content-Type
+        in: query
+        name: format
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/transport.AudioTranscribeResponse'
+        "400":
+          description: audio required / format required / api key not set
+          schema:
+            type: string
+        "401":
+          description: missing token / invalid token
+          schema:
+            type: string
+        "500":
+          description: failed to transcribe speech
+          schema:
+            type: string
+      security:
+      - BearerAuth: []
+      summary: Transcreve áudio
+      tags:
+      - audio
+  /audio/tts:
+    post:
+      consumes:
+      - application/json
+      description: Recebe texto e retorna áudio MP3 sintetizado via Edge TTS
+      parameters:
+      - description: Texto a sintetizar
+        in: body
+        name: payload
+        required: true
+        schema:
+          $ref: '#/definitions/transport.AudioTTSPayload'
+      produces:
+      - audio/mpeg
+      responses:
+        "200":
+          description: Áudio MP3
+          schema:
+            type: file
+        "400":
+          description: invalid payload / text required
+          schema:
+            type: string
+        "401":
+          description: missing token / invalid token
+          schema:
+            type: string
+        "500":
+          description: failed to synthesize speech
+          schema:
+            type: string
+      security:
+      - BearerAuth: []
+      summary: Sintetiza fala
+      tags:
+      - audio
+  /health:
+    get:
+      description: Retorna status do servidor
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Health check
+      tags:
+      - system
+securityDefinitions:
+  BearerAuth:
+    in: header
+    name: Authorization
+    type: apiKey
+swagger: "2.0"
