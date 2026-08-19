@@ -24,9 +24,10 @@ type groqTool struct {
 }
 
 type groqChatCompletionRequest struct {
-	Model    string     `json:"model"`
-	Messages []Message  `json:"messages"`
-	Tools    []groqTool `json:"tools,omitempty"`
+	Model             string     `json:"model"`
+	Messages          []Message  `json:"messages"`
+	Tools             []groqTool `json:"tools,omitempty"`
+	ParallelToolCalls bool       `json:"parallel_tool_calls"`
 }
 
 type groqToolCall struct {
@@ -62,9 +63,10 @@ func (c *GroqClient) Complete(ctx context.Context, apiKey string, messages []Mes
 	}
 
 	requestBody, err := json.Marshal(groqChatCompletionRequest{
-		Model:    "openai/gpt-oss-120b",
-		Messages: messages,
-		Tools:    groqTools,
+		Model:             "qwen/qwen3.6-27b",
+		Messages:          messages,
+		Tools:             groqTools,
+		ParallelToolCalls: true,
 	})
 	if err != nil {
 		return nil, err
