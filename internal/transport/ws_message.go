@@ -40,6 +40,25 @@ func (s *Server) listMessages(ctx context.Context, sess *session.Session, taskID
 	return messages, nil
 }
 
+func (s *Server) createSummary(ctx context.Context, sess *session.Session, taskID uuid.UUID) (string, error) {
+	summary := ""
+	otherTasks, err := s.tasksStore.ListByUser(ctx, sess.UserID, 5)
+	if err != nil {
+		return summary, err
+	}
+	for _, t := range otherTasks {
+		if t.ID != taskID && !t.State.IsTerminal() {
+			firstMsg, err := s.messagesStore.GetFirstByTask(ctx, t.ID)
+			if err != nil {
+				s.logger.Warn("error on get running task first message", "error", err, "task_id", t.ID)
+				continue
+			}
+			summary += fmt.Sprintf("- %s (status: %s)\n", firstMsg.Content, t.State)
+		}
+	}
+	return summary, nil
+}
+
 func (s *Server) handleMessage(ctx context.Context, sess *session.Session, payload json.RawMessage) error {
 	messagePayload := MessagePayload{}
 
@@ -69,12 +88,17 @@ func (s *Server) handleMessage(ctx context.Context, sess *session.Session, paylo
 		return err
 	}
 
+	summary, err := s.createSummary(ctx, sess, task.ID)
+	if err != nil {
+		return err
+	}
+
 	for i := 0; i < agent.MaxPlanningIterations; i++ {
 		if err := s.tasksStore.SetState(ctx, task.ID, tasks.Planning); err != nil {
 			s.logger.Warn("error on update task state", "error", err, "task_id", task.ID)
 		}
 
-		result := s.planningQueue.Submit(ctx, sess.UserID, sess.GroqAPIKey, messages, sess.Capabilities)
+		result := s.planningQueue.Submit(ctx, sess.UserID, sess.GroqAPIKey, messages, summary, sess.Capabilities)
 		if result == nil {
 			if err := s.tasksStore.SetState(ctx, task.ID, tasks.Failed); err != nil {
 				s.logger.Warn("error on update task state", "error", err, "task_id", task.ID)
@@ -120,6 +144,11 @@ func (s *Server) handleMessage(ctx context.Context, sess *session.Session, paylo
 		}
 
 		messages, err = s.listMessages(ctx, sess, task.ID)
+		if err != nil {
+			return err
+		}
+
+		summary, err = s.createSummary(ctx, sess, task.ID)
 		if err != nil {
 			return err
 		}

@@ -18,11 +18,20 @@ func NewPlanner(llmClient llm.Client) *Planner {
 	return &Planner{LLMClient: llmClient}
 }
 
-func (p *Planner) Plan(ctx context.Context, apiKey string, history []llm.Message, capabilities []string) (*Workflow, error) {
-	history = append([]llm.Message{{
+func (p *Planner) Plan(ctx context.Context, apiKey string, history []llm.Message, summary string, capabilities []string) (*Workflow, error) {
+	systemMessages := []llm.Message{{
 		Role:    "system",
 		Content: SystemPrompt,
-	}}, history...)
+	}}
+
+	if len(summary) > 0 {
+		systemMessages = append(systemMessages, llm.Message{
+			Role:    "system",
+			Content: "Outras tarefas em andamento nesse momento:\n" + summary,
+		})
+	}
+
+	history = append(systemMessages, history...)
 
 	var tools []llm.ToolDefinition
 	for _, cap := range capabilities {
