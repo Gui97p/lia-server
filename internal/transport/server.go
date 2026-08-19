@@ -15,13 +15,14 @@ import (
 )
 
 type Deps struct {
-	UsersStore    users.Store
-	MessagesStore messages.Store
-	TasksStore    tasks.Store
-	TTSClient     audio.TTSClient
-	Hub           *session.Hub
-	PlanningQueue *agent.PlanningQueueManager
-	Executor      *agent.Executor
+	UsersStore        users.Store
+	MessagesStore     messages.Store
+	TasksStore        tasks.Store
+	TranscriberClient audio.TranscriberClient
+	TTSClient         audio.TTSClient
+	Hub               *session.Hub
+	PlanningQueue     *agent.PlanningQueueManager
+	Executor          *agent.Executor
 }
 
 type Server struct {
@@ -33,7 +34,8 @@ type Server struct {
 	messagesStore messages.Store
 	tasksStore    tasks.Store
 
-	ttsClient audio.TTSClient
+	transcriberClient audio.TranscriberClient
+	ttsClient         audio.TTSClient
 
 	planningQueue *agent.PlanningQueueManager
 	executor      *agent.Executor
@@ -52,7 +54,8 @@ func New(cfg *config.Config, logger *slog.Logger, deps Deps) *http.Server {
 		messagesStore: deps.MessagesStore,
 		tasksStore:    deps.TasksStore,
 
-		ttsClient: deps.TTSClient,
+		transcriberClient: deps.TranscriberClient,
+		ttsClient:         deps.TTSClient,
 
 		planningQueue: deps.PlanningQueue,
 		executor:      deps.Executor,
@@ -64,8 +67,8 @@ func New(cfg *config.Config, logger *slog.Logger, deps Deps) *http.Server {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /health", s.handleHealth)
 
-	mux.HandleFunc("POST /audio/speak", s.withAuth(s.handleAudioTTS))
-	// mux.HandleFunc("POST /audio/transcribe", s.withAuth(s.handleAudioTranscribe))
+	mux.HandleFunc("POST /audio/tts", s.withAuth(s.handleAudioTTS))
+	mux.HandleFunc("POST /audio/transcribe", s.withAuth(s.handleAudioTranscribe))
 
 	setupMessageHandlers(s)
 	setupToolHandlers(s)

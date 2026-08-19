@@ -37,13 +37,14 @@ func main() {
 	messagesStore := messages.NewPostgresStore(pool)
 
 	app := transport.New(cfg, logger, transport.Deps{
-		UsersStore:    users.NewPostgresStore(pool),
-		MessagesStore: messagesStore,
-		TasksStore:    tasks.NewPostgresStore(pool),
-		TTSClient:     audio.NewEdgeTTSClient("pt-BR-FranciscaNeural"),
-		Hub:           session.NewHub(),
-		PlanningQueue: agent.NewPlanningQueue(agent.NewPlanner(llm.NewGroqClient("qwen/qwen3.6-27b", logger))),
-		Executor:      agent.NewExecutor(messagesStore),
+		UsersStore:        users.NewPostgresStore(pool),
+		MessagesStore:     messagesStore,
+		TasksStore:        tasks.NewPostgresStore(pool),
+		TranscriberClient: audio.NewGroqTranscriber("whisper-large-v3-turbo", logger),
+		TTSClient:         audio.NewEdgeTTSClient("pt-BR-FranciscaNeural"),
+		Hub:               session.NewHub(),
+		PlanningQueue:     agent.NewPlanningQueue(agent.NewPlanner(llm.NewGroqClient("qwen/qwen3.6-27b", logger))),
+		Executor:          agent.NewExecutor(messagesStore),
 	})
 
 	logger.Info("server starting", "port", cfg.Port)
