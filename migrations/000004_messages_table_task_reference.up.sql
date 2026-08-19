@@ -1,0 +1,1 @@
+ALTER TABLE messages ADD task_id UUID REFERENCES tasks(id) ON DELETE SET NULL;
