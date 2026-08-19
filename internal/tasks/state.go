@@ -15,6 +15,15 @@ const (
 	Cancelled  TaskState = "cancelled"
 )
 
+func (s TaskState) IsTerminal() bool {
+	switch s {
+	case Completed, Failed, Cancelled:
+		return true
+	default:
+		return false
+	}
+}
+
 type TriggerType string
 
 const (
