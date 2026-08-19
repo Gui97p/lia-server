@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/Gui97p/lia-server/internal/agent"
+	"github.com/Gui97p/lia-server/internal/audio"
 	"github.com/Gui97p/lia-server/internal/config"
 	"github.com/Gui97p/lia-server/internal/messages"
 	"github.com/Gui97p/lia-server/internal/session"
@@ -17,6 +18,7 @@ type Deps struct {
 	UsersStore    users.Store
 	MessagesStore messages.Store
 	TasksStore    tasks.Store
+	TTSClient     audio.TTSClient
 	Hub           *session.Hub
 	PlanningQueue *agent.PlanningQueueManager
 	Executor      *agent.Executor
@@ -30,6 +32,8 @@ type Server struct {
 	usersStore    users.Store
 	messagesStore messages.Store
 	tasksStore    tasks.Store
+
+	ttsClient audio.TTSClient
 
 	planningQueue *agent.PlanningQueueManager
 	executor      *agent.Executor
@@ -48,6 +52,8 @@ func New(cfg *config.Config, logger *slog.Logger, deps Deps) *http.Server {
 		messagesStore: deps.MessagesStore,
 		tasksStore:    deps.TasksStore,
 
+		ttsClient: deps.TTSClient,
+
 		planningQueue: deps.PlanningQueue,
 		executor:      deps.Executor,
 
@@ -57,6 +63,9 @@ func New(cfg *config.Config, logger *slog.Logger, deps Deps) *http.Server {
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /health", s.handleHealth)
+
+	mux.HandleFunc("POST /audio/speak", s.withAuth(s.handleAudioTTS))
+	// mux.HandleFunc("POST /audio/transcribe", s.withAuth(s.handleAudioTranscribe))
 
 	setupMessageHandlers(s)
 	setupToolHandlers(s)

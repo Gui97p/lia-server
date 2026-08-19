@@ -6,6 +6,7 @@ import (
 	"os"
 
 	"github.com/Gui97p/lia-server/internal/agent"
+	"github.com/Gui97p/lia-server/internal/audio"
 	"github.com/Gui97p/lia-server/internal/config"
 	"github.com/Gui97p/lia-server/internal/db"
 	"github.com/Gui97p/lia-server/internal/llm"
@@ -39,6 +40,7 @@ func main() {
 		UsersStore:    users.NewPostgresStore(pool),
 		MessagesStore: messagesStore,
 		TasksStore:    tasks.NewPostgresStore(pool),
+		TTSClient:     audio.NewEdgeTTSClient("pt-BR-FranciscaNeural"),
 		Hub:           session.NewHub(),
 		PlanningQueue: agent.NewPlanningQueue(agent.NewPlanner(llm.NewGroqClient(logger))),
 		Executor:      agent.NewExecutor(messagesStore),
