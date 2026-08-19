@@ -11,6 +11,12 @@ type MessageReplyPayload struct {
 	Text string `json:"text"`
 }
 
+type ToolRequest struct {
+	StepID     string         `json:"step_id"`
+	Capability string         `json:"capability"`
+	Params     map[string]any `json:"params"`
+}
+
 type ToolResult struct {
 	Success bool
 	Result  json.RawMessage
@@ -34,10 +40,10 @@ func (s *Session) RequestTool(ctx context.Context, capability string, params map
 		s.pendingMu.Unlock()
 	}()
 
-	if err := s.Writer(ctx, "tool.request", map[string]any{
-		"step_id":    stepID,
-		"capability": capability,
-		"params":     params,
+	if err := s.Writer(ctx, "tool.request", ToolRequest{
+		StepID:     stepID,
+		Capability: capability,
+		Params:     params,
 	}); err != nil {
 		return ToolResult{}, err
 	}

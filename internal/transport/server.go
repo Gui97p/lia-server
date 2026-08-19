@@ -66,9 +66,13 @@ func New(cfg *config.Config, logger *slog.Logger, deps Deps) *http.Server {
 	}
 
 	mux := http.NewServeMux()
+
 	mux.Handle("GET /docs/swagger/", http.StripPrefix("/docs/swagger/", http.FileServer(http.Dir("docs/swagger"))))
+	mux.Handle("GET /docs/asyncapi/", http.StripPrefix("/docs/asyncapi/", http.FileServer(http.Dir("docs/asyncapi"))))
+
 	mux.HandleFunc("GET /health", s.handleHealth)
-	mux.HandleFunc("GET /docs/", func(w http.ResponseWriter, r *http.Request) {
+
+	mux.HandleFunc("GET /docs/http/", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/html")
 		w.Write([]byte(`<!DOCTYPE html>
 	<html>
@@ -76,6 +80,26 @@ func New(cfg *config.Config, logger *slog.Logger, deps Deps) *http.Server {
 	<body>
 	<script id="api-reference" data-url="/docs/swagger/swagger.json"></script>
 	<script src="https://cdn.jsdelivr.net/npm/@scalar/api-reference"></script>
+	</body>
+	</html>`))
+	})
+	mux.HandleFunc("GET /docs/ws/", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/html")
+		w.Write([]byte(`<!DOCTYPE html>
+	<html>
+	<head>
+	<title>Lia WebSocket API</title>
+	<link rel="stylesheet" href="https://unpkg.com/@asyncapi/react-component@latest/styles/default.min.css">
+	</head>
+	<body>
+	<div id="asyncapi"></div>
+	<script src="https://unpkg.com/@asyncapi/react-component@latest/browser/standalone/index.js"></script>
+	<script>
+	AsyncApiStandalone.render({
+		schema: { url: '/docs/asyncapi/asyncapi.yaml' },
+		config: { show: { sidebar: true } },
+	}, document.getElementById('asyncapi'));
+	</script>
 	</body>
 	</html>`))
 	})
