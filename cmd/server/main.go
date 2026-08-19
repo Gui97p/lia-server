@@ -33,13 +33,15 @@ func main() {
 	}
 	defer pool.Close()
 
+	messagesStore := messages.NewPostgresStore(pool)
+
 	app := transport.New(cfg, logger, transport.Deps{
 		UsersStore:    users.NewPostgresStore(pool),
-		MessagesStore: messages.NewPostgresStore(pool),
+		MessagesStore: messagesStore,
 		TasksStore:    tasks.NewPostgresStore(pool),
 		Hub:           session.NewHub(),
 		PlanningQueue: agent.NewPlanningQueue(agent.NewPlanner(&llm.GroqClient{})),
-		Executor:      agent.NewExecutor(),
+		Executor:      agent.NewExecutor(messagesStore),
 	})
 
 	logger.Info("server starting", "port", cfg.Port)

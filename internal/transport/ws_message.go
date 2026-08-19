@@ -7,9 +7,11 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/Gui97p/lia-server/internal/agent"
 	"github.com/Gui97p/lia-server/internal/llm"
 	"github.com/Gui97p/lia-server/internal/session"
 	"github.com/Gui97p/lia-server/internal/tasks"
+	"github.com/google/uuid"
 )
 
 type MessagePayload struct {
@@ -18,6 +20,24 @@ type MessagePayload struct {
 
 type MessageAckPayload struct {
 	Ok bool `json:"ok"`
+}
+
+func (s *Server) listMessages(ctx context.Context, sess *session.Session, taskID uuid.UUID) ([]llm.Message, error) {
+	latestMessages, err := s.messagesStore.ListByTask(ctx, sess.UserID, taskID, 20)
+	if err != nil {
+		return nil, sendError(ctx, sess, "failed to fetch messages")
+	}
+	slices.Reverse(latestMessages)
+
+	var messages []llm.Message
+	for _, message := range latestMessages {
+		messages = append(messages, llm.Message{
+			Role:    message.Role,
+			Content: message.Content,
+		})
+	}
+
+	return messages, nil
 }
 
 func (s *Server) handleMessage(ctx context.Context, sess *session.Session, payload json.RawMessage) error {
@@ -44,40 +64,30 @@ func (s *Server) handleMessage(ctx context.Context, sess *session.Session, paylo
 		return sendError(ctx, sess, "failed to send event")
 	}
 
-	latestMessages, err := s.messagesStore.ListByTask(ctx, sess.UserID, task.ID, 20)
+	messages, err := s.listMessages(ctx, sess, task.ID)
 	if err != nil {
-		return sendError(ctx, sess, "failed to fetch messages")
-	}
-	slices.Reverse(latestMessages)
-
-	var messages []llm.Message
-	for _, message := range latestMessages {
-		messages = append(messages, llm.Message{
-			Role:    message.Role,
-			Content: message.Content,
-		})
+		return err
 	}
 
-	if err := s.tasksStore.SetState(ctx, task.ID, tasks.Planning); err != nil {
-		s.logger.Warn("error on update task state", "error", err, "task_id", task.ID)
-	}
-
-	result := s.planningQueue.Submit(ctx, sess.UserID, sess.GroqAPIKey, messages, sess.Capabilities)
-	if result == nil {
-		if err := s.tasksStore.SetState(ctx, task.ID, tasks.Failed); err != nil {
+	for i := 0; i < agent.MaxPlanningIterations; i++ {
+		if err := s.tasksStore.SetState(ctx, task.ID, tasks.Planning); err != nil {
 			s.logger.Warn("error on update task state", "error", err, "task_id", task.ID)
 		}
-		return sendError(ctx, sess, "queue unavaiable, try again")
-	}
 
-	if result.Err != nil {
-		if err := s.tasksStore.SetState(ctx, task.ID, tasks.Failed); err != nil {
-			s.logger.Warn("error on update task state", "error", err, "task_id", task.ID)
+		result := s.planningQueue.Submit(ctx, sess.UserID, sess.GroqAPIKey, messages, sess.Capabilities)
+		if result == nil {
+			if err := s.tasksStore.SetState(ctx, task.ID, tasks.Failed); err != nil {
+				s.logger.Warn("error on update task state", "error", err, "task_id", task.ID)
+			}
+			return sendError(ctx, sess, "queue unavaiable, try again")
 		}
-		return sendError(ctx, sess, fmt.Sprintf("failed to plan: %s", result.Err))
-	}
+		if result.Err != nil {
+			if err := s.tasksStore.SetState(ctx, task.ID, tasks.Failed); err != nil {
+				s.logger.Warn("error on update task state", "error", err, "task_id", task.ID)
+			}
+			return sendError(ctx, sess, fmt.Sprintf("failed to plan: %s", result.Err))
+		}
 
-	if result.Workflow != nil {
 		if err := s.tasksStore.SetState(ctx, task.ID, tasks.Ready); err != nil {
 			s.logger.Warn("error on update task state", "error", err, "task_id", task.ID)
 		}
@@ -94,31 +104,32 @@ func (s *Server) handleMessage(ctx context.Context, sess *session.Session, paylo
 			s.logger.Warn("error on update task state", "error", err, "task_id", task.ID)
 		}
 
-		toolResults, err := s.executor.Execute(ctx, sess, result.Workflow)
+		execResult, err := s.executor.Execute(ctx, sess, task.ID, result.Workflow)
 		if err != nil {
 			if err := s.tasksStore.SetState(ctx, task.ID, tasks.Failed); err != nil {
 				s.logger.Warn("error on update task state", "error", err, "task_id", task.ID)
 			}
 			return sendError(ctx, sess, "failed to execute task")
 		}
-		for _, toolResult := range toolResults {
-			_ = toolResult
-			result.Reply = fmt.Sprintf("task %s executed successfully", task.ID)
+
+		if !execResult.NeedsReplan {
+			if err := s.tasksStore.SetState(ctx, task.ID, tasks.Completed); err != nil {
+				s.logger.Warn("error on update task state", "error", err, "task_id", task.ID)
+			}
+			return nil
+		}
+
+		messages, err = s.listMessages(ctx, sess, task.ID)
+		if err != nil {
+			return err
 		}
 	}
 
-	if _, err = s.messagesStore.Create(ctx, sess.UserID, "assistant", result.Reply, task.ID); err != nil {
-		if stateErr := s.tasksStore.SetState(ctx, task.ID, tasks.Failed); stateErr != nil {
-			s.logger.Warn("error on update task state", "error", stateErr, "task_id", task.ID)
-		}
-		return sendError(ctx, sess, "failed to save response message")
-	}
-
-	if err := s.tasksStore.SetState(ctx, task.ID, tasks.Completed); err != nil {
+	if err := s.tasksStore.SetState(ctx, task.ID, tasks.Failed); err != nil {
 		s.logger.Warn("error on update task state", "error", err, "task_id", task.ID)
 	}
 
-	return sess.Writer(ctx, "message.reply", result.Reply)
+	return sess.Writer(ctx, "message.reply", session.MessageReplyPayload{Text: agent.MaxIterationFailed})
 }
 
 func setupMessageHandlers(s *Server) {
