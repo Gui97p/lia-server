@@ -7,6 +7,10 @@ import (
 	"github.com/google/uuid"
 )
 
+type MessageReplyPayload struct {
+	Text string `json:"text"`
+}
+
 type ToolResult struct {
 	Success bool
 	Result  json.RawMessage
