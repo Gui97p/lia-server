@@ -9,12 +9,12 @@ messages       (id, user_id, role, content, created_at)
 memories       (id, user_id, scope, fact, category, created_at, updated_at)
 behavior_rules (id, user_id, rule, created_at)
 tasks          (id, user_id, state, workflow, trigger_type, authorized_trust_level, created_at, updated_at)
--- capabilities (catálogo: nome, descrição, schema, trust, source, core, …) — planejado; ainda sem migration
+capabilities   (name, description, schema, parameters, trust_level, source, …)
 ```
 
 `groups`/`user_groups` foram removidas do desenho — o escopo `GROUP` de memória (ver [Memória](memory.md#escopos)) foi descartado por ser especulativo (Lia é de uso interno, poucas pessoas, sem nenhuma feature de grupo implementada). Revisitar só se isso virar necessidade real.
 
-Migrations existentes hoje: `users`, `messages`. O restante do schema acima é alvo de design; o catálogo de capabilities (ver [Tools e Capabilities](tools-and-capabilities.md#catálogo-de-capabilities-postgres-vs-registry-em-runtime-in-memory)) ainda não tem tabela.
+Migrations existentes hoje: `users`, `messages`, `tasks`, `memories`, `behavior_rules` e `capabilities`.
 
 ## Secrets em repouso
 
