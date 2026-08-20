@@ -14,6 +14,7 @@ import (
 	"github.com/Gui97p/lia-server/internal/messages"
 	"github.com/Gui97p/lia-server/internal/session"
 	"github.com/Gui97p/lia-server/internal/tasks"
+	"github.com/Gui97p/lia-server/internal/tools"
 	"github.com/Gui97p/lia-server/internal/transport"
 	"github.com/Gui97p/lia-server/internal/users"
 )
@@ -55,19 +56,25 @@ func main() {
 	}
 
 	messagesStore := messages.NewPostgresStore(pool)
+	memoriesStore := memories.NewPostgresStore(pool)
+
+	toolRegistry := tools.NewRegistry()
+	toolRegistry.Register("saveMemory", tools.NewSaveMemoryHandler(memoriesStore))
+	toolRegistry.Register("updateMemory", tools.NewUpdateMemoryHandler(memoriesStore))
+	toolRegistry.Register("deleteMemory", tools.NewDeleteMemoryHandler(memoriesStore))
 
 	app := transport.New(cfg, logger, transport.Deps{
 		UsersStore:    users.NewPostgresStore(pool),
 		MessagesStore: messagesStore,
 		TasksStore:    tasksStore,
-		MemoriesStore: memories.NewPostgresStore(pool),
+		MemoriesStore: memoriesStore,
 
 		TranscriberClient: audio.NewGroqTranscriber("whisper-large-v3-turbo", logger),
 		TTSClient:         audio.NewEdgeTTSClient("pt-BR-FranciscaNeural"),
 
 		Hub:           session.NewHub(),
-		PlanningQueue: agent.NewPlanningQueue(agent.NewPlanner(llm.NewGroqClient("qwen/qwen3.6-27b", logger))),
-		Executor:      agent.NewExecutor(messagesStore),
+		PlanningQueue: agent.NewPlanningQueue(agent.NewPlanner(llm.NewGroqClient("qwen/qwen3.6-27b", logger), toolRegistry)),
+		Executor:      agent.NewExecutor(messagesStore, toolRegistry),
 	})
 
 	logger.Info("server starting", "port", cfg.Port)
