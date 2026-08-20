@@ -41,6 +41,7 @@ type groqChatCompletionRequest struct {
 	Tools             []groqTool `json:"tools,omitempty"`
 	ParallelToolCalls bool       `json:"parallel_tool_calls"`
 	ReasoningFormat   string     `json:"reasoning_format,omitempty"`
+	ReasoningEffort   string     `json:"reasoning_effort,omitempty"`
 	MaxTokens         int        `json:"max_tokens,omitempty"`
 }
 
@@ -88,7 +89,8 @@ func (c *GroqClient) Complete(ctx context.Context, apiKey string, messages []Mes
 		Tools:             groqTools,
 		ParallelToolCalls: true,
 		ReasoningFormat:   "parsed",
-		MaxTokens:         4096,
+		ReasoningEffort:   "none",
+		MaxTokens:         2048,
 	})
 	if err != nil {
 		return nil, err
