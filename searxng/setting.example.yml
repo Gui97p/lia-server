@@ -1,0 +1,9 @@
+use_default_settings: true
+
+server:
+  secret_key: "browser secret key. Generate one with openssl rand -hex 32"
+
+search:
+  formats:
+    - html
+    - json

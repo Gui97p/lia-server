@@ -36,9 +36,10 @@ Pré-requisitos, do zero:
    ```bash
    git clone git@github.com:Gui97p/lia-server.git
    ```
-5. **Recriar o `.env`** — está no `.gitignore` de propósito (tem segredos), então não vem no clone:
+5. **Recriar o `.env` e `searxng/settings.yml` e preencher após**. estão no `.gitignore` de propósito (tem segredos), então não vem no clone:
    ```bash
    cp .env.example .env   # ajustar valores conforme necessário
+   cp searxng/settings.example.yml searxng/settings.yml
    ```
 
 ## Desenvolvimento
