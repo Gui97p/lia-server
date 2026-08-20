@@ -21,7 +21,12 @@ func (s *Server) buildExtraContext(ctx context.Context, sess *session.Session, t
 		return "", err
 	}
 
-	return joinSections(summary, memoryContext), nil
+	behaviorRulesContext, err := s.createBehaviorRulesContext(ctx, sess)
+	if err != nil {
+		return "", err
+	}
+
+	return joinSections(summary, memoryContext, behaviorRulesContext), nil
 }
 
 func joinSections(sections ...string) string {
@@ -64,7 +69,7 @@ func (s *Server) createMemoryContext(ctx context.Context, sess *session.Session)
 		return memoryContext, err
 	}
 
-	if len(globalMemories) != 0 {
+	if len(globalMemories) > 0 {
 		memoryContext += "Informações gerais que você possui:\n"
 		for _, m := range globalMemories {
 			category := ""
@@ -80,7 +85,7 @@ func (s *Server) createMemoryContext(ctx context.Context, sess *session.Session)
 		return memoryContext, err
 	}
 
-	if len(userMemories) != 0 {
+	if len(userMemories) > 0 {
 		memoryContext += "Memórias do usuário que você possui:\n"
 		for _, m := range userMemories {
 			category := ""
@@ -92,4 +97,22 @@ func (s *Server) createMemoryContext(ctx context.Context, sess *session.Session)
 	}
 
 	return memoryContext, nil
+}
+
+func (s *Server) createBehaviorRulesContext(ctx context.Context, sess *session.Session) (string, error) {
+	rulesContext := ""
+
+	rules, err := s.behaviorRulesStore.ListActive(ctx, sess.UserID)
+	if err != nil {
+		return rulesContext, err
+	}
+
+	if len(rules) > 0 {
+		rulesContext += "Regras de comportamento:\n"
+		for _, r := range rules {
+			rulesContext += fmt.Sprintf("- %s\n", r.Rule)
+		}
+	}
+
+	return rulesContext, nil
 }

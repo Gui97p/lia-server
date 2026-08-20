@@ -8,6 +8,7 @@ import (
 	_ "github.com/Gui97p/lia-server/docs/swagger"
 	"github.com/Gui97p/lia-server/internal/agent"
 	"github.com/Gui97p/lia-server/internal/audio"
+	behaviorrules "github.com/Gui97p/lia-server/internal/behavior_rules"
 	"github.com/Gui97p/lia-server/internal/config"
 	"github.com/Gui97p/lia-server/internal/memories"
 	"github.com/Gui97p/lia-server/internal/messages"
@@ -17,10 +18,11 @@ import (
 )
 
 type Deps struct {
-	UsersStore    users.Store
-	MessagesStore messages.Store
-	TasksStore    tasks.Store
-	MemoriesStore memories.Store
+	UsersStore         users.Store
+	MessagesStore      messages.Store
+	TasksStore         tasks.Store
+	MemoriesStore      memories.Store
+	BehaviorRulesStore behaviorrules.Store
 
 	TranscriberClient audio.TranscriberClient
 	TTSClient         audio.TTSClient
@@ -35,10 +37,11 @@ type Server struct {
 	router *router
 	hub    *session.Hub
 
-	usersStore    users.Store
-	messagesStore messages.Store
-	tasksStore    tasks.Store
-	memoriesStore memories.Store
+	usersStore         users.Store
+	messagesStore      messages.Store
+	tasksStore         tasks.Store
+	memoriesStore      memories.Store
+	behaviorRulesStore behaviorrules.Store
 
 	transcriberClient audio.TranscriberClient
 	ttsClient         audio.TTSClient
@@ -56,10 +59,11 @@ func New(cfg *config.Config, logger *slog.Logger, deps Deps) *http.Server {
 		router: newRouter(),
 		hub:    deps.Hub,
 
-		usersStore:    deps.UsersStore,
-		messagesStore: deps.MessagesStore,
-		tasksStore:    deps.TasksStore,
-		memoriesStore: deps.MemoriesStore,
+		usersStore:         deps.UsersStore,
+		messagesStore:      deps.MessagesStore,
+		tasksStore:         deps.TasksStore,
+		memoriesStore:      deps.MemoriesStore,
+		behaviorRulesStore: deps.BehaviorRulesStore,
 
 		transcriberClient: deps.TranscriberClient,
 		ttsClient:         deps.TTSClient,

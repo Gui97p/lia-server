@@ -7,6 +7,7 @@ import (
 
 	"github.com/Gui97p/lia-server/internal/agent"
 	"github.com/Gui97p/lia-server/internal/audio"
+	behaviorrules "github.com/Gui97p/lia-server/internal/behavior_rules"
 	"github.com/Gui97p/lia-server/internal/config"
 	"github.com/Gui97p/lia-server/internal/db"
 	"github.com/Gui97p/lia-server/internal/llm"
@@ -64,10 +65,11 @@ func main() {
 	toolRegistry.Register("deleteMemory", tools.NewDeleteMemoryHandler(memoriesStore))
 
 	app := transport.New(cfg, logger, transport.Deps{
-		UsersStore:    users.NewPostgresStore(pool),
-		MessagesStore: messagesStore,
-		TasksStore:    tasksStore,
-		MemoriesStore: memoriesStore,
+		UsersStore:         users.NewPostgresStore(pool),
+		MessagesStore:      messagesStore,
+		TasksStore:         tasksStore,
+		MemoriesStore:      memoriesStore,
+		BehaviorRulesStore: behaviorrules.NewPostgresStore(pool),
 
 		TranscriberClient: audio.NewGroqTranscriber("whisper-large-v3-turbo", logger),
 		TTSClient:         audio.NewEdgeTTSClient("pt-BR-FranciscaNeural"),
