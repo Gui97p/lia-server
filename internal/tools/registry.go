@@ -3,10 +3,18 @@ package tools
 import (
 	"context"
 
+	"github.com/Gui97p/lia-server/internal/llm"
 	"github.com/Gui97p/lia-server/internal/session"
 )
 
 type Handler func(ctx context.Context, sess *session.Session, params map[string]any) (session.ToolResult, error)
+
+var KnownCapabilities = map[string]llm.ToolDefinition{
+	"speak":        SpeakDefinition,
+	"saveMemory":   SaveMemoryDefinition,
+	"updateMemory": UpdateMemoryDefinition,
+	"deleteMemory": DeleteMemoryDefinition,
+}
 
 type Registry struct {
 	handlers map[string]Handler
