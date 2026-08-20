@@ -25,9 +25,9 @@ type Task struct {
 
 type Store interface {
 	Create(ctx context.Context, userID uuid.UUID, triggerType TriggerType, trustLevel auth.TrustLevel) (*Task, error)
-	GetByID(ctx context.Context, ID uuid.UUID) (*Task, error)
+	GetByID(ctx context.Context, taskID uuid.UUID) (*Task, error)
 	ListByUser(ctx context.Context, userID uuid.UUID, limit int) ([]Task, error)
-	SetState(ctx context.Context, ID uuid.UUID, state TaskState) error
-	SetWorkflow(ctx context.Context, ID uuid.UUID, workflow json.RawMessage) error
+	SetState(ctx context.Context, taskID uuid.UUID, state TaskState) error
+	SetWorkflow(ctx context.Context, taskID uuid.UUID, workflow json.RawMessage) error
 	RecoverStaleTasks(ctx context.Context) (int64, error)
 }

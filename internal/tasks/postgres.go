@@ -58,11 +58,11 @@ func (s *PostgresStore) ListByUser(ctx context.Context, userID uuid.UUID, limit 
 	return ts, nil
 }
 
-func (s *PostgresStore) GetByID(ctx context.Context, ID uuid.UUID) (*Task, error) {
+func (s *PostgresStore) GetByID(ctx context.Context, taskID uuid.UUID) (*Task, error) {
 	var t Task
 	err := s.pool.QueryRow(ctx,
 		"SELECT id, user_id, state, workflow, trigger_type, authorized_trust_level, created_at, updated_at FROM tasks WHERE id = $1",
-		ID,
+		taskID,
 	).Scan(&t.ID, &t.UserID, &t.State, &t.Workflow, &t.TriggerType, &t.AuthorizedTrustLevel, &t.CreatedAt, &t.UpdatedAt)
 	if err != nil {
 		return nil, err
@@ -70,10 +70,10 @@ func (s *PostgresStore) GetByID(ctx context.Context, ID uuid.UUID) (*Task, error
 	return &t, nil
 }
 
-func (s *PostgresStore) SetState(ctx context.Context, ID uuid.UUID, state TaskState) error {
+func (s *PostgresStore) SetState(ctx context.Context, taskID uuid.UUID, state TaskState) error {
 	tag, err := s.pool.Exec(ctx,
 		`UPDATE tasks SET state = $1 WHERE id = $2`,
-		state, ID,
+		state, taskID,
 	)
 
 	if err != nil {
@@ -87,10 +87,10 @@ func (s *PostgresStore) SetState(ctx context.Context, ID uuid.UUID, state TaskSt
 	return nil
 }
 
-func (s *PostgresStore) SetWorkflow(ctx context.Context, ID uuid.UUID, workflow json.RawMessage) error {
+func (s *PostgresStore) SetWorkflow(ctx context.Context, taskID uuid.UUID, workflow json.RawMessage) error {
 	tag, err := s.pool.Exec(ctx,
 		`UPDATE tasks SET workflow = $1 WHERE id = $2`,
-		workflow, ID,
+		workflow, taskID,
 	)
 
 	if err != nil {
