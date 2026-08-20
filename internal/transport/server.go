@@ -67,6 +67,10 @@ func New(cfg *config.Config, logger *slog.Logger, deps Deps) *http.Server {
 
 	mux := http.NewServeMux()
 
+	mux.HandleFunc("GET /", func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, "/docs/", http.StatusFound)
+	})
+
 	mux.Handle("GET /docs/swagger/", http.StripPrefix("/docs/swagger/", http.FileServer(http.Dir("docs/swagger"))))
 	mux.Handle("GET /docs/asyncapi/", http.StripPrefix("/docs/asyncapi/", http.FileServer(http.Dir("docs/asyncapi"))))
 	mux.Handle("GET /docs/", http.StripPrefix("/docs/", http.FileServer(http.Dir("docs/site"))))
