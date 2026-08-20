@@ -19,7 +19,7 @@ type planJob struct {
 	ctx          context.Context
 	apiKey       string
 	history      []llm.Message
-	summary      string
+	extraContext      string
 	capabilities []string
 	result       chan PlanResult
 }
@@ -35,7 +35,7 @@ func NewPlanningQueue(planner *Planner) *PlanningQueueManager {
 
 func (p *PlanningQueueManager) worker(ch chan planJob) {
 	for job := range ch {
-		workflow, err := p.planner.Plan(job.ctx, job.apiKey, job.history, job.summary, job.capabilities)
+		workflow, err := p.planner.Plan(job.ctx, job.apiKey, job.history, job.extraContext, job.capabilities)
 		job.result <- PlanResult{Workflow: workflow, Err: err}
 	}
 }
@@ -60,7 +60,7 @@ func (p *PlanningQueueManager) StopIfUnused(userID uuid.UUID, hub *session.Hub) 
 	}
 }
 
-func (p *PlanningQueueManager) Submit(ctx context.Context, userID uuid.UUID, apiKey string, history []llm.Message, summary string, capabilities []string) *PlanResult {
+func (p *PlanningQueueManager) Submit(ctx context.Context, userID uuid.UUID, apiKey string, history []llm.Message, extraContext string, capabilities []string) *PlanResult {
 	p.mu.Lock()
 	ch := p.queues[userID]
 	p.mu.Unlock()
@@ -73,7 +73,7 @@ func (p *PlanningQueueManager) Submit(ctx context.Context, userID uuid.UUID, api
 		ctx:          ctx,
 		apiKey:       apiKey,
 		history:      history,
-		summary:      summary,
+		extraContext:      extraContext,
 		capabilities: capabilities,
 		result:       make(chan PlanResult),
 	}

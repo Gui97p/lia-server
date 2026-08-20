@@ -9,6 +9,7 @@ import (
 	"github.com/Gui97p/lia-server/internal/agent"
 	"github.com/Gui97p/lia-server/internal/audio"
 	"github.com/Gui97p/lia-server/internal/config"
+	"github.com/Gui97p/lia-server/internal/memories"
 	"github.com/Gui97p/lia-server/internal/messages"
 	"github.com/Gui97p/lia-server/internal/session"
 	"github.com/Gui97p/lia-server/internal/tasks"
@@ -16,14 +17,17 @@ import (
 )
 
 type Deps struct {
-	UsersStore        users.Store
-	MessagesStore     messages.Store
-	TasksStore        tasks.Store
+	UsersStore    users.Store
+	MessagesStore messages.Store
+	TasksStore    tasks.Store
+	MemoriesStore memories.Store
+
 	TranscriberClient audio.TranscriberClient
 	TTSClient         audio.TTSClient
-	Hub               *session.Hub
-	PlanningQueue     *agent.PlanningQueueManager
-	Executor          *agent.Executor
+
+	Hub           *session.Hub
+	PlanningQueue *agent.PlanningQueueManager
+	Executor      *agent.Executor
 }
 
 type Server struct {
@@ -34,6 +38,7 @@ type Server struct {
 	usersStore    users.Store
 	messagesStore messages.Store
 	tasksStore    tasks.Store
+	memoriesStore memories.Store
 
 	transcriberClient audio.TranscriberClient
 	ttsClient         audio.TTSClient
@@ -54,6 +59,7 @@ func New(cfg *config.Config, logger *slog.Logger, deps Deps) *http.Server {
 		usersStore:    deps.UsersStore,
 		messagesStore: deps.MessagesStore,
 		tasksStore:    deps.TasksStore,
+		memoriesStore: deps.MemoriesStore,
 
 		transcriberClient: deps.TranscriberClient,
 		ttsClient:         deps.TTSClient,

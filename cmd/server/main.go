@@ -10,6 +10,7 @@ import (
 	"github.com/Gui97p/lia-server/internal/config"
 	"github.com/Gui97p/lia-server/internal/db"
 	"github.com/Gui97p/lia-server/internal/llm"
+	"github.com/Gui97p/lia-server/internal/memories"
 	"github.com/Gui97p/lia-server/internal/messages"
 	"github.com/Gui97p/lia-server/internal/session"
 	"github.com/Gui97p/lia-server/internal/tasks"
@@ -56,14 +57,17 @@ func main() {
 	messagesStore := messages.NewPostgresStore(pool)
 
 	app := transport.New(cfg, logger, transport.Deps{
-		UsersStore:        users.NewPostgresStore(pool),
-		MessagesStore:     messagesStore,
-		TasksStore:        tasksStore,
+		UsersStore:    users.NewPostgresStore(pool),
+		MessagesStore: messagesStore,
+		TasksStore:    tasksStore,
+		MemoriesStore: memories.NewPostgresStore(pool),
+
 		TranscriberClient: audio.NewGroqTranscriber("whisper-large-v3-turbo", logger),
 		TTSClient:         audio.NewEdgeTTSClient("pt-BR-FranciscaNeural"),
-		Hub:               session.NewHub(),
-		PlanningQueue:     agent.NewPlanningQueue(agent.NewPlanner(llm.NewGroqClient("qwen/qwen3.6-27b", logger))),
-		Executor:          agent.NewExecutor(messagesStore),
+
+		Hub:           session.NewHub(),
+		PlanningQueue: agent.NewPlanningQueue(agent.NewPlanner(llm.NewGroqClient("qwen/qwen3.6-27b", logger))),
+		Executor:      agent.NewExecutor(messagesStore),
 	})
 
 	logger.Info("server starting", "port", cfg.Port)

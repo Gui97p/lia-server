@@ -18,16 +18,16 @@ func NewPlanner(llmClient llm.Client) *Planner {
 	return &Planner{LLMClient: llmClient}
 }
 
-func (p *Planner) Plan(ctx context.Context, apiKey string, history []llm.Message, summary string, capabilities []string) (*Workflow, error) {
+func (p *Planner) Plan(ctx context.Context, apiKey string, history []llm.Message, extraContext string, capabilities []string) (*Workflow, error) {
 	systemMessages := []llm.Message{{
 		Role:    "system",
 		Content: SystemPrompt,
 	}}
 
-	if len(summary) > 0 {
+	if len(extraContext) > 0 {
 		systemMessages = append(systemMessages, llm.Message{
 			Role:    "system",
-			Content: "Outras tarefas em andamento nesse momento:\n" + summary,
+			Content: extraContext,
 		})
 	}
 
