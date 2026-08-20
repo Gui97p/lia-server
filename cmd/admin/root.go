@@ -11,4 +11,6 @@ func init() {
 	rootCmd.AddCommand(usersCmd)
 	rootCmd.AddCommand(tokensCmd)
 	rootCmd.AddCommand(messagesCmd)
+	rootCmd.AddCommand(rulesCmd)
+	rootCmd.AddCommand(memoriesCmd)
 }
