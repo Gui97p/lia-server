@@ -16,7 +16,7 @@
                         "BearerAuth": []
                     }
                 ],
-                "description": "Recebe arquivo de áudio e retorna texto transcrito via Whisper",
+                "description": "Recebe um áudio gravado pelo usuário e devolve o texto transcrito, usando o Whisper via Groq",
                 "consumes": [
                     "application/octet-stream"
                 ],
@@ -26,7 +26,7 @@
                 "tags": [
                     "audio"
                 ],
-                "summary": "Transcreve áudio",
+                "summary": "Transformar fala em texto",
                 "parameters": [
                     {
                         "type": "string",
@@ -63,14 +63,14 @@
                 }
             }
         },
-        "/audio/tts": {
+        "/audio/speak": {
             "post": {
                 "security": [
                     {
                         "BearerAuth": []
                     }
                 ],
-                "description": "Recebe texto e retorna áudio MP3 sintetizado via Edge TTS",
+                "description": "Recebe um texto e devolve o áudio correspondente (MP3), sintetizado via Edge TTS",
                 "consumes": [
                     "application/json"
                 ],
@@ -80,7 +80,7 @@
                 "tags": [
                     "audio"
                 ],
-                "summary": "Sintetiza fala",
+                "summary": "Transformar texto em fala",
                 "parameters": [
                     {
                         "description": "Texto a sintetizar",

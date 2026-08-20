@@ -123,7 +123,7 @@ components:
   messages:
     auth:
       name: auth
-      summary: Autenticação da conexão WebSocket
+      summary: "Autenticação da conexão WebSocket (evento: `auth`)"
       payload:
         $ref: "#/components/schemas/AuthPayload"
       examples:
@@ -139,7 +139,7 @@ components:
 
     message:
       name: message
-      summary: Mensagem de texto do usuário para a Lia
+      summary: "Mensagem de texto do usuário para a Lia (evento: `message`)"
       payload:
         $ref: "#/components/schemas/MessagePayload"
       examples:
@@ -151,7 +151,7 @@ components:
 
     toolCompleted:
       name: tool.completed
-      summary: Resultado de tool executada pelo client
+      summary: "Resultado de tool executada pelo client (evento: `tool.completed`)"
       payload:
         $ref: "#/components/schemas/ToolCompletedPayload"
       examples:
@@ -174,7 +174,7 @@ components:
 
     error:
       name: error
-      summary: Erro retornado pelo server
+      summary: "Erro retornado pelo server (evento: `error`)"
       payload:
         $ref: "#/components/schemas/ErrorPayload"
       examples:
@@ -186,7 +186,7 @@ components:
 
     authOk:
       name: auth.ok
-      summary: Confirmação de autenticação bem-sucedida
+      summary: "Confirmação de autenticação bem-sucedida (evento: `auth.ok`)"
       payload:
         $ref: "#/components/schemas/AuthOkPayload"
       examples:
@@ -198,7 +198,7 @@ components:
 
     messageAck:
       name: message.ack
-      summary: Confirmação de recebimento da mensagem pelo server
+      summary: "Confirmação de recebimento da mensagem pelo server (evento: `message.ack`)"
       payload:
         $ref: "#/components/schemas/MessageAckPayload"
       examples:
@@ -210,7 +210,7 @@ components:
 
     messageReply:
       name: message.reply
-      summary: Resposta de texto gerada pela Lia
+      summary: "Resposta de texto gerada pela Lia (evento: `message.reply`)"
       payload:
         $ref: "#/components/schemas/MessageReplyPayload"
       examples:
@@ -222,7 +222,7 @@ components:
 
     toolRequest:
       name: tool.request
-      summary: Solicitação de execução de tool local
+      summary: "Solicitação de execução de tool local (evento: `tool.request`)"
       description: |
         O client deve executar a capability indicada com os params fornecidos
         e responder com `tool.completed` usando o mesmo `step_id`.
@@ -239,169 +239,180 @@ components:
                 app: spotify
 
   schemas:
-    Envelope:
+    AuthPayload:
       type: object
+      description: "Envelope completo: { event, payload }"
       required:
         - event
         - payload
       properties:
         event:
-          type: string
+          const: auth
           description: Nome do evento
         payload:
           type: object
-          description: Dados do evento
-
-    AuthPayload:
-      allOf:
-        - $ref: "#/components/schemas/Envelope"
-        - type: object
+          required:
+            - token
+            - capabilities
           properties:
-            event:
-              const: auth
-            payload:
-              type: object
-              required:
-                - token
-                - capabilities
-              properties:
-                token:
-                  type: string
-                  description: JWT gerado pelo CLI de admin
-                capabilities:
-                  type: array
-                  items:
-                    type: string
-                  description: Lista de tools locais que o client suporta executar
+            token:
+              type: string
+              description: JWT gerado pelo CLI de admin
+            capabilities:
+              type: array
+              items:
+                type: string
+              description: Lista de tools locais que o client suporta executar
 
     MessagePayload:
-      allOf:
-        - $ref: "#/components/schemas/Envelope"
-        - type: object
+      type: object
+      description: "Envelope completo: { event, payload }"
+      required:
+        - event
+        - payload
+      properties:
+        event:
+          const: message
+          description: Nome do evento
+        payload:
+          type: object
+          required:
+            - text
           properties:
-            event:
-              const: message
-            payload:
-              type: object
-              required:
-                - text
-              properties:
-                text:
-                  type: string
-                  description: Mensagem de texto do usuário
+            text:
+              type: string
+              description: Mensagem de texto do usuário
 
     ToolCompletedPayload:
-      allOf:
-        - $ref: "#/components/schemas/Envelope"
-        - type: object
+      type: object
+      description: "Envelope completo: { event, payload }"
+      required:
+        - event
+        - payload
+      properties:
+        event:
+          const: tool.completed
+          description: Nome do evento
+        payload:
+          type: object
+          required:
+            - step_id
+            - success
           properties:
-            event:
-              const: tool.completed
-            payload:
+            step_id:
+              type: string
+              description: ID do step retornado no tool.request
+            success:
+              type: boolean
+              description: Se a execução foi bem-sucedida
+            result:
               type: object
-              required:
-                - step_id
-                - success
-              properties:
-                step_id:
-                  type: string
-                  description: ID do step retornado no tool.request
-                success:
-                  type: boolean
-                  description: Se a execução foi bem-sucedida
-                result:
-                  type: object
-                  nullable: true
-                  description: Resultado da execução (qualquer JSON)
-                error:
-                  type: string
-                  description: Mensagem de erro se success for false
+              nullable: true
+              description: Resultado da execução (qualquer JSON)
+            error:
+              type: string
+              description: Mensagem de erro se success for false
 
     ErrorPayload:
-      allOf:
-        - $ref: "#/components/schemas/Envelope"
-        - type: object
+      type: object
+      description: "Envelope completo: { event, payload }"
+      required:
+        - event
+        - payload
+      properties:
+        event:
+          const: error
+          description: Nome do evento
+        payload:
+          type: object
+          required:
+            - message
           properties:
-            event:
-              const: error
-            payload:
-              type: object
-              required:
-                - message
-              properties:
-                message:
-                  type: string
-                  description: Descrição do erro
+            message:
+              type: string
+              description: Descrição do erro
 
     AuthOkPayload:
-      allOf:
-        - $ref: "#/components/schemas/Envelope"
-        - type: object
+      type: object
+      description: "Envelope completo: { event, payload }"
+      required:
+        - event
+        - payload
+      properties:
+        event:
+          const: auth.ok
+          description: Nome do evento
+        payload:
+          type: object
+          required:
+            - conn_id
           properties:
-            event:
-              const: auth.ok
-            payload:
-              type: object
-              required:
-                - conn_id
-              properties:
-                conn_id:
-                  type: string
-                  format: uuid
-                  description: UUID da conexão atual
+            conn_id:
+              type: string
+              format: uuid
+              description: UUID da conexão atual
 
     MessageAckPayload:
-      allOf:
-        - $ref: "#/components/schemas/Envelope"
-        - type: object
+      type: object
+      description: "Envelope completo: { event, payload }"
+      required:
+        - event
+        - payload
+      properties:
+        event:
+          const: message.ack
+          description: Nome do evento
+        payload:
+          type: object
+          required:
+            - ok
           properties:
-            event:
-              const: message.ack
-            payload:
-              type: object
-              required:
-                - ok
-              properties:
-                ok:
-                  type: boolean
+            ok:
+              type: boolean
 
     MessageReplyPayload:
-      allOf:
-        - $ref: "#/components/schemas/Envelope"
-        - type: object
+      type: object
+      description: "Envelope completo: { event, payload }"
+      required:
+        - event
+        - payload
+      properties:
+        event:
+          const: message.reply
+          description: Nome do evento
+        payload:
+          type: object
+          required:
+            - text
           properties:
-            event:
-              const: message.reply
-            payload:
-              type: object
-              required:
-                - text
-              properties:
-                text:
-                  type: string
-                  description: Resposta gerada pela Lia
+            text:
+              type: string
+              description: Resposta gerada pela Lia
 
     ToolRequestPayload:
-      allOf:
-        - $ref: "#/components/schemas/Envelope"
-        - type: object
+      type: object
+      description: "Envelope completo: { event, payload }"
+      required:
+        - event
+        - payload
+      properties:
+        event:
+          const: tool.request
+          description: Nome do evento
+        payload:
+          type: object
+          required:
+            - step_id
+            - capability
+            - params
           properties:
-            event:
-              const: tool.request
-            payload:
+            step_id:
+              type: string
+              description: ID único do step — deve ser retornado no tool.completed
+            capability:
+              type: string
+              description: "Nome da capability a executar (ex: openApp, windowManager)"
+            params:
               type: object
-              required:
-                - step_id
-                - capability
-                - params
-              properties:
-                step_id:
-                  type: string
-                  description: ID único do step — deve ser retornado no tool.completed
-                capability:
-                  type: string
-                  description: "Nome da capability a executar (ex: openApp, windowManager)"
-                params:
-                  type: object
-                  additionalProperties: true
-                  description: Parâmetros da capability (varia por capability)
+              additionalProperties: true
+              description: Parâmetros da capability (varia por capability)

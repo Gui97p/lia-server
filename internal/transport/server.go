@@ -69,42 +69,11 @@ func New(cfg *config.Config, logger *slog.Logger, deps Deps) *http.Server {
 
 	mux.Handle("GET /docs/swagger/", http.StripPrefix("/docs/swagger/", http.FileServer(http.Dir("docs/swagger"))))
 	mux.Handle("GET /docs/asyncapi/", http.StripPrefix("/docs/asyncapi/", http.FileServer(http.Dir("docs/asyncapi"))))
+	mux.Handle("GET /docs/", http.StripPrefix("/docs/", http.FileServer(http.Dir("docs/site"))))
 
 	mux.HandleFunc("GET /health", s.handleHealth)
 
-	mux.HandleFunc("GET /docs/http/", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "text/html")
-		w.Write([]byte(`<!DOCTYPE html>
-	<html>
-	<head><title>Lia API</title></head>
-	<body>
-	<script id="api-reference" data-url="/docs/swagger/swagger.json"></script>
-	<script src="https://cdn.jsdelivr.net/npm/@scalar/api-reference"></script>
-	</body>
-	</html>`))
-	})
-	mux.HandleFunc("GET /docs/ws/", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "text/html")
-		w.Write([]byte(`<!DOCTYPE html>
-	<html>
-	<head>
-	<title>Lia WebSocket API</title>
-	<link rel="stylesheet" href="https://unpkg.com/@asyncapi/react-component@latest/styles/default.min.css">
-	</head>
-	<body>
-	<div id="asyncapi"></div>
-	<script src="https://unpkg.com/@asyncapi/react-component@latest/browser/standalone/index.js"></script>
-	<script>
-	AsyncApiStandalone.render({
-		schema: { url: '/docs/asyncapi/asyncapi.yaml' },
-		config: { show: { sidebar: true } },
-	}, document.getElementById('asyncapi'));
-	</script>
-	</body>
-	</html>`))
-	})
-
-	mux.HandleFunc("POST /audio/tts", s.withAuth(s.handleAudioTTS))
+	mux.HandleFunc("POST /audio/speak", s.withAuth(s.handleAudioTTS))
 	mux.HandleFunc("POST /audio/transcribe", s.withAuth(s.handleAudioTranscribe))
 
 	setupMessageHandlers(s)

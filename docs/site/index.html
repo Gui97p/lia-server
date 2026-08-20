@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Documentação Lia Server</title>
+<style>
+	body {
+		background: #0d1117;
+		color: #e6edf3;
+		font-family: system-ui, sans-serif;
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		justify-content: center;
+		height: 100vh;
+		margin: 0;
+		gap: 1.5rem;
+		text-align: center;
+		padding: 1rem;
+	}
+	.badges {
+		display: flex;
+		flex-wrap: wrap;
+		justify-content: center;
+		gap: 0.5rem;
+		max-width: 28rem;
+	}
+	.badge {
+		color: #8b949e;
+		background: #161b22;
+		border: 1px solid #30363d;
+		border-radius: 999px;
+		padding: 0.25rem 0.9rem;
+		font-size: 0.8rem;
+	}
+	.links {
+		display: flex;
+		gap: 1rem;
+		margin-top: 0.5rem;
+	}
+	a {
+		color: #e6edf3;
+		background: #21262d;
+		border: 1px solid #30363d;
+		border-radius: 8px;
+		padding: 0.75rem 2rem;
+		text-decoration: none;
+		font-size: 1.1rem;
+	}
+	a:hover { background: #30363d; }
+</style>
+</head>
+<body>
+<h1>Documentação Lia Server</h1>
+<div class="badges">
+	<span class="badge">v0.5.0</span>
+	<span class="badge">Pode alucinar sobre buracos negros</span>
+</div>
+<div class="links">
+	<a href="/docs/http/">API HTTP</a>
+	<a href="/docs/ws/">API WebSocket</a>
+</div>
+</body>
+</html>

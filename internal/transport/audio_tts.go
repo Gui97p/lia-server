@@ -10,8 +10,8 @@ type AudioTTSPayload struct {
 	Text string `json:"text"`
 }
 
-// @Summary      Sintetiza fala
-// @Description  Recebe texto e retorna áudio MP3 sintetizado via Edge TTS
+// @Summary      Transformar texto em fala
+// @Description  Recebe um texto e devolve o áudio correspondente (MP3), sintetizado via Edge TTS
 // @Tags         audio
 // @Accept       json
 // @Produce      audio/mpeg
@@ -21,7 +21,7 @@ type AudioTTSPayload struct {
 // @Failure      401  {string}  string  "missing token / invalid token"
 // @Failure      500  {string}  string  "failed to synthesize speech"
 // @Security     BearerAuth
-// @Router       /audio/tts [post]
+// @Router       /audio/speak [post]
 func (s *Server) handleAudioTTS(w http.ResponseWriter, r *http.Request) {
 	_, ok := userFromContext(r.Context())
 	if !ok {

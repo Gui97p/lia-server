@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Lia WebSocket API</title>
+<link rel="stylesheet" href="https://unpkg.com/@asyncapi/react-component@latest/styles/default.min.css">
+<style>
+	/* @asyncapi/react-component não tem dark mode nativo — isso é um
+	   filtro por cima da página inteira, não um tema de verdade.
+	   Se um dia quiser algo mais refinado, vale trocar de visualizador. */
+	body { background: #0d1117; margin: 0; }
+	#asyncapi { filter: invert(1) hue-rotate(180deg); }
+
+	/* .examples e .prose pre (bloco de código, com ou sem syntax highlight)
+	   têm fundo E texto definidos juntos como um par no CSS original —
+	   cancelar no nível mais externo de cada "zona escura" (inversão
+	   dupla) já restaura tudo que tem dentro dela de uma vez, incluindo
+	   qualquer .hljs aninhado — não precisa cancelar de novo lá dentro.
+	   .prose sozinho (texto corrido) NÃO tem fundo próprio, só cor de
+	   texto pensada pra um fundo branco — cancelar só o texto sem o fundo
+	   dá baixo contraste, por isso fica de fora e recebe só o filtro
+	   simples da página, como o resto do texto normal. O :not() evita
+	   cancelar de novo um .prose pre que já está dentro de .examples. */
+	#asyncapi .examples,
+	#asyncapi .prose pre:not(.examples .prose pre) {
+		filter: invert(1) hue-rotate(180deg);
+	}
+
+	/* Fundo do .examples igual ao dos blocos de código (mesma cor do
+	   .hljs), em vez do bg-gray-800 original. Preto puro (#000) não
+	   funciona bem aqui: invert()+hue-rotate() é uma aproximação, não
+	   uma inversão matemática exata, e o desvio fica mais visível em
+	   cores sem nenhuma tonalidade (preto/branco/cinza puro) do que em
+	   cores com alguma cor de base, como esta. */
+	#asyncapi .examples {
+		background-color: #011627 !important;
+	}
+</style>
+</head>
+<body>
+<div id="asyncapi"></div>
+<script src="https://unpkg.com/@asyncapi/react-component@latest/browser/standalone/index.js"></script>
+<script>
+AsyncApiStandalone.render({
+	schema: { url: '/docs/asyncapi/asyncapi.yaml' },
+	config: {
+		show: { sidebar: true, operations: false },
+		sidebar: { useChannelAddressAsIdentifier: false },
+	},
+}, document.getElementById('asyncapi'));
+</script>
+</body>
+</html>

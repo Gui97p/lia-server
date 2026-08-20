@@ -13,8 +13,8 @@ type AudioTranscribeResponse struct {
 	Text string `json:"text"`
 }
 
-// @Summary      Transcreve áudio
-// @Description  Recebe arquivo de áudio e retorna texto transcrito via Whisper
+// @Summary      Transformar fala em texto
+// @Description  Recebe um áudio gravado pelo usuário e devolve o texto transcrito, usando o Whisper via Groq
 // @Tags         audio
 // @Accept       application/octet-stream
 // @Produce      json
