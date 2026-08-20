@@ -11,5 +11,13 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
 
+  searxng:
+    image: docker.io/searxng/searxng:latest
+    restart: unless-stopped
+    ports:
+      - "8888:8080"
+    volumes:
+      - ./searxng:/etc/searxng
+
 volumes:
   postgres_data:

@@ -14,6 +14,7 @@ type Config struct {
 	DatabaseURL   string
 	JWTSecret     []byte
 	EncryptionKey []byte
+	SearXNGURL    string
 }
 
 func parseBase64(key string) ([]byte, error) {
@@ -63,6 +64,11 @@ func Load() (*Config, error) {
 
 	if cfg.Port == "" {
 		cfg.Port = "8080"
+	}
+
+	cfg.SearXNGURL = os.Getenv("SEARXNG_URL")
+	if cfg.SearXNGURL == "" {
+		cfg.SearXNGURL = "http://localhost:8888"
 	}
 
 	return cfg, nil

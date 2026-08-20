@@ -43,13 +43,13 @@ vet:
 clean:
 	rm -rf $(BIN_DIR)
 
-db-up:
+compose-up:
 	$(COMPOSE) up -d
 
-db-down:
+compose-down:
 	$(COMPOSE) down
 
-db-drop:
+compose-drop:
 	$(COMPOSE) down -v
 
 migrate-create:
