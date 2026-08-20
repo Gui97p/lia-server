@@ -4,15 +4,15 @@ PostgreSQL como banco principal. Suporta múltiplas conexões simultâneas e pre
 
 ```sql
 users          (id, username, groq_api_key_encrypted, created_at, token_version)
-groups         (id, name, created_at)
-user_groups    (user_id, group_id)
 voice_profiles (id, user_id, embedding, created_at)
 messages       (id, user_id, role, content, created_at)
-memories       (id, user_id, group_id, scope, fact, category, created_at)
+memories       (id, user_id, scope, fact, category, created_at, updated_at)
 behavior_rules (id, user_id, rule, created_at)
 tasks          (id, user_id, state, workflow, trigger_type, authorized_trust_level, created_at, updated_at)
 -- capabilities (catálogo: nome, descrição, schema, trust, source, core, …) — planejado; ainda sem migration
 ```
+
+`groups`/`user_groups` foram removidas do desenho — o escopo `GROUP` de memória (ver [Memória](memory.md#escopos)) foi descartado por ser especulativo (Lia é de uso interno, poucas pessoas, sem nenhuma feature de grupo implementada). Revisitar só se isso virar necessidade real.
 
 Migrations existentes hoje: `users`, `messages`. O restante do schema acima é alvo de design; o catálogo de capabilities (ver [Tools e Capabilities](tools-and-capabilities.md#catálogo-de-capabilities-postgres-vs-registry-em-runtime-in-memory)) ainda não tem tabela.
 
@@ -24,7 +24,7 @@ Sem senha, e portanto sem `password_hash` — tokens são gerados via `lia-admin
 
 ## Isolamento de escopo de memória
 
-A tabela `memories` só protege PRIVATE/USER/GROUP de vazamento entre usuários se **toda query** filtrar corretamente por `scope`/`user_id`/`group_id`. Um único ponto de código que esqueça esse filtro vaza dado que não deveria ser visível.
+A tabela `memories` só protege PRIVATE/USER de vazamento entre usuários se **toda query** filtrar corretamente por `scope`/`user_id`. Um único ponto de código que esqueça esse filtro vaza dado que não deveria ser visível.
 
 Para o volume e número de pessoas mexendo no código hoje (Gui, possivelmente Yure depois), revisão disciplinada da camada de aplicação já reduz bastante o risco. Se o projeto crescer (mais devs, mais superfícies de código tocando `memories`), reforçar com Row-Level Security do Postgres passa a valer a complexidade adicional — não antes disso.
 
