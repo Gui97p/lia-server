@@ -29,4 +29,5 @@ type Store interface {
 	ListByUser(ctx context.Context, userID uuid.UUID, limit int) ([]Task, error)
 	SetState(ctx context.Context, ID uuid.UUID, state TaskState) error
 	SetWorkflow(ctx context.Context, ID uuid.UUID, workflow json.RawMessage) error
+	RecoverStaleTasks(ctx context.Context) (int64, error)
 }

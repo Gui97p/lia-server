@@ -103,3 +103,11 @@ func (s *PostgresStore) SetWorkflow(ctx context.Context, ID uuid.UUID, workflow 
 
 	return nil
 }
+
+func (s *PostgresStore) RecoverStaleTasks(ctx context.Context) (int64, error) {
+	tag, err := s.pool.Exec(ctx,
+		`UPDATE tasks SET state = 'failed' WHERE state NOT IN ('completed', 'failed', 'cancelled')`,
+	)
+
+	return tag.RowsAffected(), err
+}

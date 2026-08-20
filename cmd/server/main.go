@@ -42,12 +42,23 @@ func main() {
 	}
 	defer pool.Close()
 
+	tasksStore := tasks.NewPostgresStore(pool)
+
+	recovered, err := tasksStore.RecoverStaleTasks(ctx)
+	if err != nil {
+		logger.Error("failed to recover stale tasks", "error", err)
+		os.Exit(1)
+	}
+	if recovered > 0 {
+		logger.Warn("recovered stale tasks on startup", "count", recovered)
+	}
+
 	messagesStore := messages.NewPostgresStore(pool)
 
 	app := transport.New(cfg, logger, transport.Deps{
 		UsersStore:        users.NewPostgresStore(pool),
 		MessagesStore:     messagesStore,
-		TasksStore:        tasks.NewPostgresStore(pool),
+		TasksStore:        tasksStore,
 		TranscriberClient: audio.NewGroqTranscriber("whisper-large-v3-turbo", logger),
 		TTSClient:         audio.NewEdgeTTSClient("pt-BR-FranciscaNeural"),
 		Hub:               session.NewHub(),
