@@ -18,9 +18,10 @@ type ToolRequest struct {
 }
 
 type ToolResult struct {
-	Success bool
-	Result  json.RawMessage
-	Error   string
+	Success     bool
+	Result      json.RawMessage
+	Error       string
+	NeedsReplan bool
 }
 
 func (s *Session) RequestTool(ctx context.Context, capability string, params map[string]any) (ToolResult, error) {

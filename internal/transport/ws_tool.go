@@ -9,10 +9,11 @@ import (
 )
 
 type ToolResultPayload struct {
-	StepID  string          `json:"step_id"`
-	Success bool            `json:"success"`
-	Result  json.RawMessage `json:"result"`
-	Error   string          `json:"error"`
+	StepID      string          `json:"step_id"`
+	Success     bool            `json:"success"`
+	Result      json.RawMessage `json:"result"`
+	Error       string          `json:"error"`
+	NeedsReplan bool            `json:"needs_replan"`
 }
 
 func (s *Server) handleToolCompleted(ctx context.Context, sess *session.Session, payload json.RawMessage) error {
@@ -21,7 +22,7 @@ func (s *Server) handleToolCompleted(ctx context.Context, sess *session.Session,
 		return sendError(ctx, sess, "invalid payload")
 	}
 
-	success := sess.ResolveTool(p.StepID, session.ToolResult{Success: p.Success, Result: p.Result, Error: p.Error})
+	success := sess.ResolveTool(p.StepID, session.ToolResult{Success: p.Success, Result: p.Result, Error: p.Error, NeedsReplan: p.NeedsReplan})
 	if !success {
 		return sendError(ctx, sess, fmt.Sprintf("step with id %s not found", p.StepID))
 	}

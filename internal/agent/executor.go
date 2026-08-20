@@ -51,6 +51,13 @@ func (e *Executor) Execute(ctx context.Context, sess *session.Session, taskID uu
 				return &executeResult, fmt.Errorf("capability %q reported failure: %s", step.Capability, result.Error)
 			}
 			executeResult.Results = append(executeResult.Results, result)
+
+			if result.NeedsReplan {
+				if err := e.recordToolResult(ctx, sess, taskID, step.Capability, result); err != nil {
+					return &executeResult, err
+				}
+				executeResult.NeedsReplan = true
+			}
 		} else if step.Capability == "speak" {
 			text, ok := step.Params["text"].(string)
 			if !ok {
@@ -89,10 +96,25 @@ func (e *Executor) Execute(ctx context.Context, sess *session.Session, taskID uu
 				return &executeResult, err
 			}
 			executeResult.Results = append(executeResult.Results, result)
+
+			if result.NeedsReplan {
+				if err := e.recordToolResult(ctx, sess, taskID, step.Capability, result); err != nil {
+					return &executeResult, err
+				}
+				executeResult.NeedsReplan = true
+			}
 		}
 	}
 
 	return &executeResult, nil
+}
+
+func (e *Executor) recordToolResult(ctx context.Context, sess *session.Session, taskID uuid.UUID, capability string, result session.ToolResult) error {
+	content := fmt.Sprintf("Resultado de %s: %s", capability, result.Result)
+	if _, err := e.messagesStore.Create(ctx, sess.UserID, "assistant", content, taskID); err != nil {
+		return fmt.Errorf("failed to save tool result message: %w", err)
+	}
+	return nil
 }
 
 func (e *Executor) executeStep(ctx context.Context, sess *session.Session, step Step) (session.ToolResult, error) {

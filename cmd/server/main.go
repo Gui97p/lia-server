@@ -19,6 +19,7 @@ import (
 	"github.com/Gui97p/lia-server/internal/tools"
 	"github.com/Gui97p/lia-server/internal/transport"
 	"github.com/Gui97p/lia-server/internal/users"
+	"github.com/Gui97p/lia-server/internal/websearch"
 )
 
 // @title          Lia Server API
@@ -65,6 +66,7 @@ func main() {
 	toolRegistry.Register("saveMemory", tools.NewSaveMemoryHandler(memoriesStore))
 	toolRegistry.Register("updateMemory", tools.NewUpdateMemoryHandler(memoriesStore))
 	toolRegistry.Register("deleteMemory", tools.NewDeleteMemoryHandler(memoriesStore))
+	toolRegistry.Register("searchWeb", tools.NewSearchWebHandler(websearch.NewSearXNGClient(cfg.SearXNGURL)))
 
 	app := transport.New(cfg, logger, transport.Deps{
 		UsersStore:         users.NewPostgresStore(pool),
