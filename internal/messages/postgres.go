@@ -96,3 +96,17 @@ func (s *PostgresStore) GetFirstByTask(ctx context.Context, taskID uuid.UUID) (*
 
 	return &m, nil
 }
+
+func (s *PostgresStore) Delete(ctx context.Context, messageID uuid.UUID) error {
+	tag, err := s.pool.Exec(ctx,
+		`DELETE FROM messages WHERE id = $1`,
+		messageID,
+	)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrNotFound
+	}
+	return nil
+}

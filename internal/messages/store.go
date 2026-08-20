@@ -2,10 +2,13 @@ package messages
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"github.com/google/uuid"
 )
+
+var ErrNotFound = errors.New("message not found")
 
 type Message struct {
 	ID        uuid.UUID
@@ -21,4 +24,5 @@ type Store interface {
 	ListByUser(ctx context.Context, userID uuid.UUID, limit int) ([]Message, error)
 	ListByTask(ctx context.Context, userID uuid.UUID, taskID uuid.UUID, limit int) ([]Message, error)
 	GetFirstByTask(ctx context.Context, taskID uuid.UUID) (*Message, error)
+	Delete(ctx context.Context, messageID uuid.UUID) error
 }
