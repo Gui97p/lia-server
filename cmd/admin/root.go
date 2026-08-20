@@ -13,4 +13,5 @@ func init() {
 	rootCmd.AddCommand(messagesCmd)
 	rootCmd.AddCommand(rulesCmd)
 	rootCmd.AddCommand(memoriesCmd)
+	rootCmd.AddCommand(capabilitiesCmd)
 }

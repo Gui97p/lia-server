@@ -6,6 +6,7 @@ import (
 	"os"
 
 	behaviorrules "github.com/Gui97p/lia-server/internal/behavior_rules"
+	"github.com/Gui97p/lia-server/internal/capabilities"
 	"github.com/Gui97p/lia-server/internal/config"
 	"github.com/Gui97p/lia-server/internal/db"
 	"github.com/Gui97p/lia-server/internal/memories"
@@ -18,6 +19,7 @@ var (
 	messagesStore      messages.Store
 	behaviorRulesStore behaviorrules.Store
 	memoriesStore      memories.Store
+	capabilitiesStore  capabilities.Store
 	encryptionKey      []byte
 	jwtSecret          []byte
 )
@@ -43,6 +45,7 @@ func main() {
 	messagesStore = messages.NewPostgresStore(pool)
 	behaviorRulesStore = behaviorrules.NewPostgresStore(pool)
 	memoriesStore = memories.NewPostgresStore(pool)
+	capabilitiesStore = capabilities.NewPostgresStore(pool)
 	encryptionKey = cfg.EncryptionKey
 	jwtSecret = cfg.JWTSecret
 
