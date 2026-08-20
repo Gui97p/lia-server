@@ -8,12 +8,14 @@ import (
 
 	"github.com/Gui97p/lia-server/internal/messages"
 	"github.com/Gui97p/lia-server/internal/session"
+	"github.com/Gui97p/lia-server/internal/tools"
 	"github.com/google/uuid"
 )
 
 type Executor struct {
 	Timeout       time.Duration
 	messagesStore messages.Store
+	toolRegistry  *tools.Registry
 }
 
 type ExecuteResult struct {
@@ -21,8 +23,8 @@ type ExecuteResult struct {
 	NeedsReplan bool
 }
 
-func NewExecutor(messagesStore messages.Store) *Executor {
-	return &Executor{Timeout: 30 * time.Second, messagesStore: messagesStore}
+func NewExecutor(messagesStore messages.Store, toolRegistry *tools.Registry) *Executor {
+	return &Executor{Timeout: 30 * time.Second, messagesStore: messagesStore, toolRegistry: toolRegistry}
 }
 
 func (e *Executor) Execute(ctx context.Context, sess *session.Session, taskID uuid.UUID, workflow *Workflow) (*ExecuteResult, error) {
@@ -34,11 +36,22 @@ func (e *Executor) Execute(ctx context.Context, sess *session.Session, taskID uu
 			break
 		}
 
-		if !slices.Contains(sess.Capabilities, step.Capability) && step.Capability != "speak" {
+		serverHandler, isServerTool := e.toolRegistry.Get(step.Capability)
+
+		if !slices.Contains(sess.Capabilities, step.Capability) && step.Capability != "speak" && !isServerTool {
 			return &executeResult, fmt.Errorf("capability %q not advertised by this session", step.Capability)
 		}
 
-		if step.Capability == "speak" {
+		if isServerTool {
+			result, err := serverHandler(ctx, sess, step.Params)
+			if err != nil {
+				return &executeResult, fmt.Errorf("capability %q failed: %w", step.Capability, err)
+			}
+			if !result.Success {
+				return &executeResult, fmt.Errorf("capability %q reported failure: %s", step.Capability, result.Error)
+			}
+			executeResult.Results = append(executeResult.Results, result)
+		} else if step.Capability == "speak" {
 			text, ok := step.Params["text"].(string)
 			if !ok {
 				return &executeResult, fmt.Errorf("speak step missing or invalid \"text\" param")

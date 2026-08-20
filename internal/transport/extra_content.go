@@ -71,7 +71,7 @@ func (s *Server) createMemoryContext(ctx context.Context, sess *session.Session)
 			if m.Category != nil {
 				category = fmt.Sprintf("[%s]", *m.Category)
 			}
-			memoryContext += fmt.Sprintf("- [%s][%s]%s - %s\n", m.CreatedAt.Format("2006-01-02"), m.Scope, category, m.Fact)
+			memoryContext += fmt.Sprintf("- (ID: %s) [%s][%s]%s - %s\n", m.ID, m.CreatedAt.Format("2006-01-02"), m.Scope, category, m.Fact)
 		}
 	}
 
@@ -87,7 +87,7 @@ func (s *Server) createMemoryContext(ctx context.Context, sess *session.Session)
 			if m.Category != nil {
 				category = fmt.Sprintf("[%s]", *m.Category)
 			}
-			memoryContext += fmt.Sprintf("- [%s][%s]%s - %s\n", m.CreatedAt.Format("2006-01-02"), m.Scope, category, m.Fact)
+			memoryContext += fmt.Sprintf("- (ID: %s) [%s][%s]%s - %s\n", m.ID, m.CreatedAt.Format("2006-01-02"), m.Scope, category, m.Fact)
 		}
 	}
 

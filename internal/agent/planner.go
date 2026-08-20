@@ -5,17 +5,19 @@ import (
 	"errors"
 
 	"github.com/Gui97p/lia-server/internal/llm"
+	"github.com/Gui97p/lia-server/internal/tools"
 	"github.com/google/uuid"
 )
 
 var MaxPlanningIterations int = 3
 
 type Planner struct {
-	LLMClient llm.Client
+	LLMClient    llm.Client
+	ToolRegistry *tools.Registry
 }
 
-func NewPlanner(llmClient llm.Client) *Planner {
-	return &Planner{LLMClient: llmClient}
+func NewPlanner(llmClient llm.Client, toolRegistry *tools.Registry) *Planner {
+	return &Planner{LLMClient: llmClient, ToolRegistry: toolRegistry}
 }
 
 func (p *Planner) Plan(ctx context.Context, apiKey string, history []llm.Message, extraContext string, capabilities []string) (*Workflow, error) {
@@ -33,15 +35,32 @@ func (p *Planner) Plan(ctx context.Context, apiKey string, history []llm.Message
 
 	history = append(systemMessages, history...)
 
-	var tools []llm.ToolDefinition
-	for _, cap := range capabilities {
-		if def, ok := knownCapabilities[cap]; ok {
-			tools = append(tools, def)
+	var toolDefs []llm.ToolDefinition
+	added := make(map[string]bool)
+
+	addTool := func(name string) {
+		if added[name] {
+			return
+		}
+		if def, ok := knownCapabilities[name]; ok {
+			toolDefs = append(toolDefs, def)
+			added[name] = true
 		}
 	}
-	tools = append(tools, knownCapabilities["speak"])
 
-	result, err := p.LLMClient.Complete(ctx, apiKey, history, tools)
+	for _, cap := range capabilities {
+		addTool(cap)
+	}
+
+	for name := range knownCapabilities {
+		if _, isServerTool := p.ToolRegistry.Get(name); isServerTool {
+			addTool(name)
+		}
+	}
+
+	addTool("speak")
+
+	result, err := p.LLMClient.Complete(ctx, apiKey, history, toolDefs)
 	if err != nil {
 		return nil, err
 	}
