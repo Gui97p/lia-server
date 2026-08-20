@@ -8,6 +8,7 @@ import (
 	"github.com/Gui97p/lia-server/internal/agent"
 	"github.com/Gui97p/lia-server/internal/audio"
 	behaviorrules "github.com/Gui97p/lia-server/internal/behavior_rules"
+	"github.com/Gui97p/lia-server/internal/capabilities"
 	"github.com/Gui97p/lia-server/internal/config"
 	"github.com/Gui97p/lia-server/internal/db"
 	"github.com/Gui97p/lia-server/internal/llm"
@@ -58,6 +59,7 @@ func main() {
 
 	messagesStore := messages.NewPostgresStore(pool)
 	memoriesStore := memories.NewPostgresStore(pool)
+	capabilitiesStore := capabilities.NewPostgresStore(pool)
 
 	toolRegistry := tools.NewRegistry()
 	toolRegistry.Register("saveMemory", tools.NewSaveMemoryHandler(memoriesStore))
@@ -75,7 +77,7 @@ func main() {
 		TTSClient:         audio.NewEdgeTTSClient("pt-BR-FranciscaNeural"),
 
 		Hub:           session.NewHub(),
-		PlanningQueue: agent.NewPlanningQueue(agent.NewPlanner(llm.NewGroqClient("qwen/qwen3.6-27b", logger), toolRegistry)),
+		PlanningQueue: agent.NewPlanningQueue(agent.NewPlanner(llm.NewGroqClient("qwen/qwen3.6-27b", logger), toolRegistry, capabilitiesStore)),
 		Executor:      agent.NewExecutor(messagesStore, toolRegistry),
 	})
 

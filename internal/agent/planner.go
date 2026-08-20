@@ -2,8 +2,11 @@ package agent
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
+	"fmt"
 
+	"github.com/Gui97p/lia-server/internal/capabilities"
 	"github.com/Gui97p/lia-server/internal/llm"
 	"github.com/Gui97p/lia-server/internal/tools"
 	"github.com/google/uuid"
@@ -12,15 +15,16 @@ import (
 var MaxPlanningIterations int = 3
 
 type Planner struct {
-	LLMClient    llm.Client
-	ToolRegistry *tools.Registry
+	LLMClient         llm.Client
+	ToolRegistry      *tools.Registry
+	CapabilitiesStore capabilities.Store
 }
 
-func NewPlanner(llmClient llm.Client, toolRegistry *tools.Registry) *Planner {
-	return &Planner{LLMClient: llmClient, ToolRegistry: toolRegistry}
+func NewPlanner(llmClient llm.Client, toolRegistry *tools.Registry, capabilitiesStore capabilities.Store) *Planner {
+	return &Planner{LLMClient: llmClient, ToolRegistry: toolRegistry, CapabilitiesStore: capabilitiesStore}
 }
 
-func (p *Planner) Plan(ctx context.Context, apiKey string, history []llm.Message, extraContext string, capabilities []string) (*Workflow, error) {
+func (p *Planner) Plan(ctx context.Context, apiKey string, history []llm.Message, extraContext string, clientCapabilities []string) (*Workflow, error) {
 	systemMessages := []llm.Message{{
 		Role:    "system",
 		Content: SystemPrompt,
@@ -38,27 +42,45 @@ func (p *Planner) Plan(ctx context.Context, apiKey string, history []llm.Message
 	var toolDefs []llm.ToolDefinition
 	added := make(map[string]bool)
 
-	addTool := func(name string) {
+	addServerTool := func(name string) {
 		if added[name] {
 			return
 		}
-		if def, ok := knownCapabilities[name]; ok {
+		if def, ok := tools.KnownCapabilities[name]; ok {
 			toolDefs = append(toolDefs, def)
 			added[name] = true
 		}
 	}
 
-	for _, cap := range capabilities {
-		addTool(cap)
-	}
-
-	for name := range knownCapabilities {
-		if _, isServerTool := p.ToolRegistry.Get(name); isServerTool {
-			addTool(name)
+	if len(clientCapabilities) > 0 {
+		clientCaps, err := p.CapabilitiesStore.GetByNames(ctx, clientCapabilities)
+		if err != nil {
+			return nil, err
+		}
+		for _, c := range clientCaps {
+			if added[c.Name] {
+				continue
+			}
+			var params map[string]any
+			if err := json.Unmarshal(c.Parameters, &params); err != nil {
+				return nil, fmt.Errorf("capability %q has invalid parameters in catalog: %w", c.Name, err)
+			}
+			toolDefs = append(toolDefs, llm.ToolDefinition{
+				Name:        c.Name,
+				Description: c.Description,
+				Parameters:  params,
+			})
+			added[c.Name] = true
 		}
 	}
 
-	addTool("speak")
+	for name := range tools.KnownCapabilities {
+		if _, isServerTool := p.ToolRegistry.Get(name); isServerTool {
+			addServerTool(name)
+		}
+	}
+
+	addServerTool("speak")
 
 	result, err := p.LLMClient.Complete(ctx, apiKey, history, toolDefs)
 	if err != nil {
