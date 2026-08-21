@@ -5,6 +5,7 @@ import (
 	"sync"
 
 	"github.com/Gui97p/lia-server/internal/auth"
+	"github.com/Gui97p/lia-server/internal/providers"
 	"github.com/google/uuid"
 )
 
@@ -15,7 +16,7 @@ type Session struct {
 	UserID       uuid.UUID
 	Username     string
 	TrustLevel   auth.TrustLevel
-	GroqAPIKey   string
+	Providers    providers.Providers
 	Capabilities []string
 	Writer       Writer
 

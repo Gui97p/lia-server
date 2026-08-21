@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/Gui97p/lia-server/internal/crypto"
+	"github.com/Gui97p/lia-server/internal/providers"
 )
 
 type AudioTranscribeResponse struct {
@@ -26,18 +27,27 @@ type AudioTranscribeResponse struct {
 // @Security     BearerAuth
 // @Router       /audio/transcribe [post]
 func (s *Server) handleAudioTranscribe(w http.ResponseWriter, r *http.Request) {
-	user, ok := userFromContext(r.Context())
+	ctx := r.Context()
+
+	user, ok := userFromContext(ctx)
 	if !ok {
 		http.Error(w, "user not found", http.StatusUnauthorized)
 		return
 	}
 
-	if user.GroqAPIKeyEncrypted == nil {
+	providersList, err := s.providersStore.FindByUser(ctx, user.ID)
+	if err != nil {
+		http.Error(w, "api key not found", http.StatusBadRequest)
+		return
+	}
+
+	encryptedKey, ok := providersList[providers.ProviderGroq]
+	if !ok {
 		http.Error(w, "api key not set", http.StatusBadRequest)
 		return
 	}
 
-	groqAPIKey, err := crypto.Decrypt(*user.GroqAPIKeyEncrypted, s.encryptionKey)
+	groqApiKey, err := crypto.Decrypt(encryptedKey, s.encryptionKey)
 	if err != nil {
 		http.Error(w, "invalid api key", http.StatusBadRequest)
 		return
@@ -60,7 +70,7 @@ func (s *Server) handleAudioTranscribe(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	text, err := s.transcriberClient.Transcribe(r.Context(), groqAPIKey, audio, format)
+	text, err := s.transcriberClient.Transcribe(r.Context(), groqApiKey, audio, format)
 	if err != nil {
 		s.logger.Error("error on transcribing audio", "error", err)
 		http.Error(w, "failed to transcribe speech", http.StatusInternalServerError)

@@ -14,6 +14,7 @@ import (
 	"github.com/Gui97p/lia-server/internal/llm"
 	"github.com/Gui97p/lia-server/internal/memories"
 	"github.com/Gui97p/lia-server/internal/messages"
+	"github.com/Gui97p/lia-server/internal/providers"
 	"github.com/Gui97p/lia-server/internal/session"
 	"github.com/Gui97p/lia-server/internal/tasks"
 	"github.com/Gui97p/lia-server/internal/tools"
@@ -70,6 +71,7 @@ func main() {
 
 	app := transport.New(cfg, logger, transport.Deps{
 		UsersStore:         users.NewPostgresStore(pool),
+		ProvidersStore:     providers.NewPostgresStore(pool),
 		MessagesStore:      messagesStore,
 		TasksStore:         tasksStore,
 		MemoriesStore:      memoriesStore,

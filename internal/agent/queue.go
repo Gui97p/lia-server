@@ -5,6 +5,7 @@ import (
 	"sync"
 
 	"github.com/Gui97p/lia-server/internal/llm"
+	"github.com/Gui97p/lia-server/internal/providers"
 	"github.com/Gui97p/lia-server/internal/session"
 	"github.com/google/uuid"
 )
@@ -19,7 +20,7 @@ type planJob struct {
 	ctx          context.Context
 	apiKey       string
 	history      []llm.Message
-	extraContext      string
+	extraContext string
 	capabilities []string
 	result       chan PlanResult
 }
@@ -60,7 +61,7 @@ func (p *PlanningQueueManager) StopIfUnused(userID uuid.UUID, hub *session.Hub) 
 	}
 }
 
-func (p *PlanningQueueManager) Submit(ctx context.Context, userID uuid.UUID, apiKey string, history []llm.Message, extraContext string, capabilities []string) *PlanResult {
+func (p *PlanningQueueManager) Submit(ctx context.Context, userID uuid.UUID, provider providers.Providers, history []llm.Message, extraContext string, capabilities []string) *PlanResult {
 	p.mu.Lock()
 	ch := p.queues[userID]
 	p.mu.Unlock()
@@ -69,11 +70,13 @@ func (p *PlanningQueueManager) Submit(ctx context.Context, userID uuid.UUID, api
 		return nil
 	}
 
+	apiKey := provider[providers.ProviderGroq]
+
 	job := planJob{
 		ctx:          ctx,
 		apiKey:       apiKey,
 		history:      history,
-		extraContext:      extraContext,
+		extraContext: extraContext,
 		capabilities: capabilities,
 		result:       make(chan PlanResult),
 	}

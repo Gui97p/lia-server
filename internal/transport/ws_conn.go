@@ -88,22 +88,32 @@ func (s *Server) handshake(ctx context.Context, conn *websocket.Conn) (*session.
 		return nil, errors.New("token version mismatch")
 	}
 
-	if user.GroqAPIKeyEncrypted == nil {
-		sendError(ctx, &sess, "invalid api key")
-		return nil, errors.New("api key not set")
+	providers, err := s.providersStore.FindByUser(ctx, userID)
+	if err != nil {
+		sendError(ctx, &sess, "invalid api key providers")
+		return nil, err
 	}
 
-	groqAPIKey, err := crypto.Decrypt(*user.GroqAPIKeyEncrypted, s.encryptionKey)
-	if err != nil {
-		sendError(ctx, &sess, "invalid api key")
-		return nil, err
+	if len(providers) == 0 {
+		sendError(ctx, &sess, "no api key configured")
+		return nil, errors.New("no provider keys configured")
+	}
+
+	for provider, encryptedKey := range providers {
+		key, err := crypto.Decrypt(encryptedKey, s.encryptionKey)
+		if err != nil {
+			s.logger.Warn("failed to decrypt api key", "error", err, "provider", provider)
+			delete(providers, provider)
+			continue
+		}
+		providers[provider] = key
 	}
 
 	sess.ConnID = uuid.New()
 	sess.UserID = userID
 	sess.Username = user.Username
 	sess.TrustLevel = claims.TrustLevel
-	sess.GroqAPIKey = groqAPIKey
+	sess.Providers = providers
 	sess.Capabilities = authPayload.Capabilities
 
 	return &sess, nil

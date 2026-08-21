@@ -12,6 +12,7 @@ import (
 	"github.com/Gui97p/lia-server/internal/config"
 	"github.com/Gui97p/lia-server/internal/memories"
 	"github.com/Gui97p/lia-server/internal/messages"
+	"github.com/Gui97p/lia-server/internal/providers"
 	"github.com/Gui97p/lia-server/internal/session"
 	"github.com/Gui97p/lia-server/internal/tasks"
 	"github.com/Gui97p/lia-server/internal/users"
@@ -19,6 +20,7 @@ import (
 
 type Deps struct {
 	UsersStore         users.Store
+	ProvidersStore     providers.Store
 	MessagesStore      messages.Store
 	TasksStore         tasks.Store
 	MemoriesStore      memories.Store
@@ -38,6 +40,7 @@ type Server struct {
 	hub    *session.Hub
 
 	usersStore         users.Store
+	providersStore     providers.Store
 	messagesStore      messages.Store
 	tasksStore         tasks.Store
 	memoriesStore      memories.Store
@@ -60,6 +63,7 @@ func New(cfg *config.Config, logger *slog.Logger, deps Deps) *http.Server {
 		hub:    deps.Hub,
 
 		usersStore:         deps.UsersStore,
+		providersStore:     deps.ProvidersStore,
 		messagesStore:      deps.MessagesStore,
 		tasksStore:         deps.TasksStore,
 		memoriesStore:      deps.MemoriesStore,

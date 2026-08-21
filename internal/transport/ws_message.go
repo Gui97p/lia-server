@@ -79,7 +79,7 @@ func (s *Server) handleMessage(ctx context.Context, sess *session.Session, paylo
 			s.logger.Warn("error on update task state", "error", err, "task_id", task.ID)
 		}
 
-		result := s.planningQueue.Submit(ctx, sess.UserID, sess.GroqAPIKey, messages, extraContext, sess.Capabilities)
+		result := s.planningQueue.Submit(ctx, sess.UserID, sess.Providers, messages, extraContext, sess.Capabilities)
 		if result == nil {
 			if err := s.tasksStore.SetState(ctx, task.ID, tasks.Failed); err != nil {
 				s.logger.Warn("error on update task state", "error", err, "task_id", task.ID)
