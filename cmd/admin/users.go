@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/Gui97p/lia-server/internal/crypto"
+	"github.com/Gui97p/lia-server/internal/providers"
 	"github.com/Gui97p/lia-server/internal/users"
 	"github.com/google/uuid"
 	"github.com/spf13/cobra"
@@ -45,12 +46,7 @@ var usersFindCmd = &cobra.Command{
 			return users.ErrNotFound
 		}
 
-		groqKeyStatus := "undefined"
-		if u.GroqAPIKeyEncrypted != nil {
-			groqKeyStatus = "defined"
-		}
-
-		fmt.Printf("id = %s\nusername = %s\ngroq_api_key_encrypted = %s\ntoken_version = %d\ncreated_at = %s\nupdated_at = %s\n", u.ID, u.Username, groqKeyStatus, u.TokenVersion, u.CreatedAt, u.UpdatedAt)
+		fmt.Printf("id = %s\nusername = %s\ntoken_version = %d\ncreated_at = %s\nupdated_at = %s\n", u.ID, u.Username, u.TokenVersion, u.CreatedAt, u.UpdatedAt)
 		return nil
 	},
 }
@@ -112,15 +108,15 @@ var usersDeleteCmd = &cobra.Command{
 	},
 }
 
-// TODO: flag for different type of providers
-// TODO: Create an abstraction that accepts different flags and calls the respective function
 var usersSetKeyCmd = &cobra.Command{
 	Use:          "set-key",
 	Short:        "Encrypt and update user's api key",
 	SilenceUsage: true,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		username, _ := cmd.Flags().GetString("username")
+		provider, _ := cmd.Flags().GetString("provider")
 		key, _ := cmd.Flags().GetString("key")
+		reset, _ := cmd.Flags().GetBool("reset")
 		ctx := context.Background()
 
 		u, err := usersStore.GetByUsername(ctx, username)
@@ -128,14 +124,21 @@ var usersSetKeyCmd = &cobra.Command{
 			return err
 		}
 
-		encryptedKey, err := crypto.Encrypt(key, encryptionKey)
-		if err != nil {
-			return err
-		}
+		if reset {
+			err = providersStore.ResetKey(ctx, u.ID, providers.ProviderName(provider))
+			if err != nil {
+				return err
+			}
+		} else {
+			encryptedKey, err := crypto.Encrypt(key, encryptionKey)
+			if err != nil {
+				return err
+			}
 
-		err = usersStore.SetGroqAPIKey(ctx, u.ID, encryptedKey)
-		if err != nil {
-			return err
+			err = providersStore.SetKey(ctx, u.ID, providers.ProviderName(provider), encryptedKey)
+			if err != nil {
+				return err
+			}
 		}
 
 		fmt.Printf("key successfully updated: id=%s\n", u.ID)
@@ -157,8 +160,11 @@ func init() {
 
 	usersSetKeyCmd.Flags().String("username", "", "target's username")
 	usersSetKeyCmd.MarkFlagRequired("username")
+	usersSetKeyCmd.Flags().VarP(StringChoice(providers.ProviderList), "provider", "", "provider to set key")
+	usersSetKeyCmd.MarkFlagRequired("provider")
 	usersSetKeyCmd.Flags().String("key", "", "API key")
-	usersSetKeyCmd.MarkFlagRequired("key")
+	usersSetKeyCmd.Flags().Bool("reset", false, "use this flag to reset key to null")
+	usersSetKeyCmd.MarkFlagsMutuallyExclusive("key", "reset")
 
 	usersCmd.AddCommand(usersFindCmd)
 	usersCmd.AddCommand(usersCreateCmd)

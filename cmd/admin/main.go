@@ -11,11 +11,13 @@ import (
 	"github.com/Gui97p/lia-server/internal/db"
 	"github.com/Gui97p/lia-server/internal/memories"
 	"github.com/Gui97p/lia-server/internal/messages"
+	"github.com/Gui97p/lia-server/internal/providers"
 	"github.com/Gui97p/lia-server/internal/users"
 )
 
 var (
 	usersStore         users.Store
+	providersStore     providers.Store
 	messagesStore      messages.Store
 	behaviorRulesStore behaviorrules.Store
 	memoriesStore      memories.Store
@@ -42,6 +44,7 @@ func main() {
 	defer pool.Close()
 
 	usersStore = users.NewPostgresStore(pool)
+	providersStore = providers.NewPostgresStore(pool)
 	messagesStore = messages.NewPostgresStore(pool)
 	behaviorRulesStore = behaviorrules.NewPostgresStore(pool)
 	memoriesStore = memories.NewPostgresStore(pool)
