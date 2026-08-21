@@ -13,8 +13,6 @@ import (
 	"time"
 )
 
-// gemini-3.5-flash-lite
-
 type GeminiClient struct {
 	Model  string
 	Logger *slog.Logger

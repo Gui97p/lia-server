@@ -5,9 +5,12 @@ import (
 	"errors"
 	"strconv"
 	"time"
+
+	"github.com/Gui97p/lia-server/internal/providers"
 )
 
 const maxRateLimitRetries = 3
+const DefaultCooldown = 60 * time.Second
 
 var ErrRateLimit = errors.New("rate limit reached")
 
@@ -34,6 +37,10 @@ type Message struct {
 
 type Client interface {
 	Complete(ctx context.Context, apiKey string, messages []Message, tools []ToolDefinition) (*CompletionResult, error)
+}
+
+type RouterClient interface {
+	Complete(ctx context.Context, keys providers.Providers, messages []Message, tools []ToolDefinition) (*CompletionResult, error)
 }
 
 func retryAfterDuration(header string) time.Duration {

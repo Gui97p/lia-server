@@ -12,6 +12,8 @@ import (
 	"time"
 )
 
+const groqThreshold = 6000
+
 type GroqClient struct {
 	Model  string
 	Logger *slog.Logger

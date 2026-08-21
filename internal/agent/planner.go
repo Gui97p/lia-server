@@ -8,6 +8,7 @@ import (
 
 	"github.com/Gui97p/lia-server/internal/capabilities"
 	"github.com/Gui97p/lia-server/internal/llm"
+	"github.com/Gui97p/lia-server/internal/providers"
 	"github.com/Gui97p/lia-server/internal/tools"
 	"github.com/google/uuid"
 )
@@ -15,16 +16,16 @@ import (
 var MaxPlanningIterations int = 3
 
 type Planner struct {
-	LLMClient         llm.Client
+	RouterClient      llm.RouterClient
 	ToolRegistry      *tools.Registry
 	CapabilitiesStore capabilities.Store
 }
 
-func NewPlanner(llmClient llm.Client, toolRegistry *tools.Registry, capabilitiesStore capabilities.Store) *Planner {
-	return &Planner{LLMClient: llmClient, ToolRegistry: toolRegistry, CapabilitiesStore: capabilitiesStore}
+func NewPlanner(routerClient llm.RouterClient, toolRegistry *tools.Registry, capabilitiesStore capabilities.Store) *Planner {
+	return &Planner{RouterClient: routerClient, ToolRegistry: toolRegistry, CapabilitiesStore: capabilitiesStore}
 }
 
-func (p *Planner) Plan(ctx context.Context, apiKey string, history []llm.Message, extraContext string, clientCapabilities []string) (*Workflow, error) {
+func (p *Planner) Plan(ctx context.Context, keys providers.Providers, history []llm.Message, extraContext string, clientCapabilities []string) (*Workflow, error) {
 	systemMessages := []llm.Message{{
 		Role:    "system",
 		Content: SystemPrompt,
@@ -82,7 +83,7 @@ func (p *Planner) Plan(ctx context.Context, apiKey string, history []llm.Message
 
 	addServerTool("speak")
 
-	result, err := p.LLMClient.Complete(ctx, apiKey, history, toolDefs)
+	result, err := p.RouterClient.Complete(ctx, keys, history, toolDefs)
 	if err != nil {
 		return nil, err
 	}
