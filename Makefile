@@ -1,4 +1,4 @@
-.PHONY: run run-admin dev build test tidy fmt vet clean db-up db-down db-drop migrate-up migrate-down migrate-create migrate-force migrate-reset
+.PHONY: run run-admin dev build test tidy fmt vet clean compose-up compose-down compose-drop migrate-up migrate-down migrate-create migrate-force migrate-reset
 
 -include .env
 export
@@ -13,7 +13,7 @@ else
 COMPOSE := docker compose
 endif
 
-default: build
+default: dev
 
 run:
 	go run ./cmd/server

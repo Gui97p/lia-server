@@ -2,9 +2,7 @@
 
 Server (Go) da Lia — uma plataforma de inteligência pessoal, não um chatbot. A Lia acompanha o usuário em múltiplos dispositivos, mantém memória contínua, reconhece quem está falando, e planeja/executa tarefas complexas com múltiplas etapas, falhas e recuperações. A referência é o Jarvis: uma inteligência que age, não apenas responde.
 
-Este repositório contém apenas o server. Clients (desktop, CLI, Discord — em Rust) e treinamento de wake word (Python) vivem em repositórios próprios.
-
-Projeto pessoal, de uso interno, em fase inicial de descoberta de arquitetura através de casos de uso reais.
+Projeto pessoal, de uso interno, descoberta de arquitetura através de casos de uso reais.
 
 ## Stack
 
@@ -38,7 +36,7 @@ Pré-requisitos, do zero:
    ```
 5. **Recriar o `.env` e `searxng/settings.yml` e preencher após**. estão no `.gitignore` de propósito (tem segredos), então não vem no clone:
    ```bash
-   cp .env.example .env   # ajustar valores conforme necessário
+   cp .env.example .env
    cp searxng/settings.example.yml searxng/settings.yml
    ```
 
