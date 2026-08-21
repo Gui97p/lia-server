@@ -2,11 +2,9 @@ package providers
 
 import (
 	"context"
-	"errors"
 	"fmt"
 
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -20,19 +18,30 @@ func NewPostgresStore(pool *pgxpool.Pool) *PostgresStore {
 	return &PostgresStore{pool: pool}
 }
 
-func (s *PostgresStore) FindByUser(ctx context.Context, userID uuid.UUID) (*Provider, error) {
-	var p Provider
-	err := s.pool.QueryRow(ctx,
-		`SELECT user_id, groq_api_key_encrypted, gemini_api_key_encrypted, created_at, updated_at FROM providers WHERE user_id = $1`,
+func (s *PostgresStore) FindByUser(ctx context.Context, userID uuid.UUID) (Providers, error) {
+	rows, err := s.pool.Query(ctx,
+		`SELECT provider, encrypted_key FROM providers
+		WHERE user_id = $1`,
 		userID,
-	).Scan(&p.UserID, &p.GroqApiKeyEncrypted, &p.GeminiApiKeyEncrypted, &p.CreatedAt, &p.UpdatedAt)
+	)
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, ErrNotFound
-		}
 		return nil, err
 	}
-	return &p, nil
+	defer rows.Close()
+
+	ps := make(Providers)
+	for rows.Next() {
+		var p Provider
+		if err := rows.Scan(&p.Provider, &p.EncryptedKey); err != nil {
+			return nil, err
+		}
+		ps[p.Provider] = p.EncryptedKey
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return ps, nil
 }
 
 func (s *PostgresStore) SetKey(ctx context.Context, userID uuid.UUID, keyProvider ProviderName, encryptedKey string) error {
@@ -40,10 +49,10 @@ func (s *PostgresStore) SetKey(ctx context.Context, userID uuid.UUID, keyProvide
 		return fmt.Errorf("unknown provider: %s", keyProvider)
 	}
 
-	column := string(keyProvider) + "_api_key_encrypted"
-	query := fmt.Sprintf("INSERT INTO providers (user_id, %s) VALUES ($1, $2) ON CONFLICT (user_id) DO UPDATE SET %s = $2", column, column)
-
-	_, err := s.pool.Exec(ctx, query, userID, encryptedKey)
+	_, err := s.pool.Exec(ctx,
+		`INSERT INTO providers (user_id, provider, encrypted_key) VALUES ($1, $2, $3) ON CONFLICT (user_id, provider) DO UPDATE SET encrypted_key = $3`,
+		userID, string(keyProvider), encryptedKey,
+	)
 	return err
 }
 
@@ -52,10 +61,10 @@ func (s *PostgresStore) ResetKey(ctx context.Context, userID uuid.UUID, keyProvi
 		return fmt.Errorf("unknown provider: %s", keyProvider)
 	}
 
-	column := string(keyProvider) + "_api_key_encrypted"
-	query := fmt.Sprintf("UPDATE providers SET %s = NULL WHERE user_id = $1", column)
-
-	_, err := s.pool.Exec(ctx, query, userID)
+	_, err := s.pool.Exec(ctx,
+		`DELETE FROM providers WHERE user_id = $1 AND provider = $2`,
+		userID, string(keyProvider),
+	)
 	return err
 }
 

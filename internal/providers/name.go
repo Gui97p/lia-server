@@ -7,6 +7,8 @@ const (
 	ProviderGemini ProviderName = "gemini"
 )
 
+var ProviderList []string = []string{string(ProviderGroq), string(ProviderGemini)}
+
 type Providers map[ProviderName]string
 
 func (p ProviderName) Valid() bool {
