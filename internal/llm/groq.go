@@ -9,11 +9,8 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
-	"strconv"
 	"time"
 )
-
-const maxRateLimitRetries = 3
 
 type GroqClient struct {
 	Model  string
@@ -181,16 +178,9 @@ func (c *GroqClient) doWithRateLimitRetry(ctx context.Context, apiKey string, re
 		}
 
 		if res.StatusCode == http.StatusTooManyRequests {
-			return nil, fmt.Errorf("groq rate limit exceeded, try again shortly")
+			return nil, ErrRateLimit
 		}
 
 		return nil, fmt.Errorf("groq api error: status %d, body %s", res.StatusCode, data)
 	}
-}
-
-func retryAfterDuration(header string) time.Duration {
-	if seconds, err := strconv.Atoi(header); err == nil && seconds > 0 {
-		return time.Duration(seconds) * time.Second
-	}
-	return 2 * time.Second
 }

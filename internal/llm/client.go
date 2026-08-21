@@ -1,6 +1,15 @@
 package llm
 
-import "context"
+import (
+	"context"
+	"errors"
+	"strconv"
+	"time"
+)
+
+const maxRateLimitRetries = 3
+
+var ErrRateLimit = errors.New("rate limit reached")
 
 type ToolDefinition struct {
 	Name        string
@@ -25,4 +34,11 @@ type Message struct {
 
 type Client interface {
 	Complete(ctx context.Context, apiKey string, messages []Message, tools []ToolDefinition) (*CompletionResult, error)
+}
+
+func retryAfterDuration(header string) time.Duration {
+	if seconds, err := strconv.Atoi(header); err == nil && seconds > 0 {
+		return time.Duration(seconds) * time.Second
+	}
+	return 2 * time.Second
 }
