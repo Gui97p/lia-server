@@ -35,8 +35,8 @@ func parseBase64(key string) ([]byte, error) {
 	return value, nil
 }
 
-func Load() (*Config, error) {
-	if err := godotenv.Load(); err != nil && !os.IsNotExist(err) {
+func Load(filenames ...string) (*Config, error) {
+	if err := godotenv.Load(filenames...); err != nil && !os.IsNotExist(err) {
 		return nil, err
 	}
 

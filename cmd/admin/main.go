@@ -26,11 +26,13 @@ var (
 	jwtSecret          []byte
 )
 
+const envPath = "/etc/lia/lia-admin.env"
+
 func main() {
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 	ctx := context.Background()
 
-	cfg, err := config.Load()
+	cfg, err := config.Load(envPath)
 	if err != nil {
 		logger.Error("failed to load config", "error", err)
 		os.Exit(1)
