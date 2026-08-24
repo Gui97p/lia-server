@@ -3,7 +3,8 @@
 PostgreSQL como banco principal. Suporta múltiplas conexões simultâneas e prepara para `pgvector` no futuro (ver [Memória](memory.md#mvp-injetar-tudo)).
 
 ```sql
-users          (id, username, groq_api_key_encrypted, created_at, token_version)
+users          (id, username, created_at, token_version)
+providers      (user_id, provider, encrypted_key, created_at, updated_at)  -- PK (user_id, provider)
 voice_profiles (id, user_id, embedding, created_at)
 messages       (id, user_id, role, content, created_at)
 memories       (id, user_id, scope, fact, category, created_at, updated_at)
@@ -14,11 +15,15 @@ capabilities   (name, description, schema, parameters, trust_level, source, …)
 
 `groups`/`user_groups` foram removidas do desenho — o escopo `GROUP` de memória (ver [Memória](memory.md#escopos)) foi descartado por ser especulativo (Lia é de uso interno, poucas pessoas, sem nenhuma feature de grupo implementada). Revisitar só se isso virar necessidade real.
 
-Migrations existentes hoje: `users`, `messages`, `tasks`, `memories`, `behavior_rules` e `capabilities`.
+Migrations existentes hoje: `users`, `providers`, `messages`, `tasks`, `memories`, `behavior_rules` e `capabilities`.
+
+### `providers`: uma linha por provider, não uma coluna por provider
+
+A key de API de cada provider (Groq, Gemini, …) fica na tabela `providers`, com **uma linha por par `(user_id, provider)`**, não uma coluna fixa por provider na tabela `users` (desenho abandonado — ver [Planner e Executor: roteamento multi-provider](planner-and-executor.md#roteamento-multi-provider-routingclient)). Isso torna "quais providers esse usuário tem configurados" uma query SQL natural (`SELECT ... WHERE user_id = $1`, 0 a N linhas), em vez de exigir enumerar colunas fixas em Go e checar nulos. `SetKey` faz upsert via `ON CONFLICT (user_id, provider) DO UPDATE`.
 
 ## Secrets em repouso
 
-`groq_api_key_encrypted` é cifrada na camada da aplicação (AES-GCM, chave em `ENCRYPTION_KEY`, separada de `JWT_SECRET`) antes de ser gravada — ver [detalhes em Identidade e Secrets](identity-auth-and-secrets.md#groq_api_key-cifrada-em-repouso). Um dump do banco sozinho não deve ser suficiente para recuperar as keys.
+`providers.encrypted_key` é cifrada na camada da aplicação (AES-GCM, chave em `ENCRYPTION_KEY`, separada de `JWT_SECRET`) antes de ser gravada — ver [detalhes em Identidade e Secrets](identity-auth-and-secrets.md#groq_api_key-cifrada-em-repouso). Um dump do banco sozinho não deve ser suficiente para recuperar as keys.
 
 Sem senha, e portanto sem `password_hash` — tokens são gerados via `lia-admin` (ver [Sem login, tokens gerados via `lia-admin`](identity-auth-and-secrets.md#sem-login-tokens-gerados-via-lia-admin)).
 

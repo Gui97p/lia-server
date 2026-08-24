@@ -25,7 +25,18 @@ Cada instrução processada pelo Planner carrega uma **proveniência** (`comando
 
 ### Abstração de LLM
 
-O Planner chama uma LLM através de `internal/llm`, que expõe uma interface pequena (ex: `Complete(ctx, prompt) (string, error)`) em vez de acoplar diretamente ao SDK do Groq — mesmo padrão de interface já usado em `internal/memory` (`Store`). Isso não significa construir suporte real a múltiplos providers agora (seria complexidade antecipada sem necessidade concreta) — só evita que o resto do sistema dependa de tipos específicos do SDK do Groq. Hoje existe uma única implementação (Groq); trocar ou adicionar outro provider no futuro fica contido em `internal/llm`.
+O Planner chama uma LLM através de `internal/llm`, que expõe uma interface pequena (`Client.Complete(ctx, apiKey, messages, tools)`) em vez de acoplar diretamente ao SDK de um provider específico — mesmo padrão de interface já usado em `internal/memory` (`Store`). `GroqClient` e `GeminiClient` implementam essa interface, cada um traduzindo pro formato de request/response do respectivo provider.
+
+### Roteamento multi-provider (`RoutingClient`)
+
+O que o `Planner` de fato enxerga não é um `Client` único, e sim `llm.RouterClient` (`Complete(ctx, keys providers.Providers, messages, tools)`) — recebe o mapa inteiro de keys disponíveis pro usuário, não uma key isolada. `BaseRouterClient` (`internal/llm/router.go`) é a implementação: guarda um `map[providers.ProviderName]Client` e uma `Priority []providers.ProviderName` (hoje `["groq", "gemini"]`), e por chamada:
+
+1. Pula qualquer provider sem key configurada pelo usuário (funciona com o que estiver disponível — nem todo usuário precisa ter todos os providers).
+2. Pula o provider se ele estiver em **cooldown** (60s após um rate limit, guardado por *key*, não por provider — importante porque `BaseRouterClient` é compartilhado entre todas as goroutines de usuário; um cooldown por provider vazaria entre usuários diferentes).
+3. Pula o Groq especificamente se uma estimativa rasa de tokens do prompt (`len(chars)/4`) passar de um teto — proteção contra o limite de TPM baixo do free tier.
+4. Chama o provider. Erro real (401, 500, etc.) **não** cai pro próximo da lista — só `llm.ErrRateLimit` (sentinela, `errors.Is`) aciona o fallback. Mascarar um erro real de configuração do usuário como se fosse falta de disponibilidade seria mais confuso que útil.
+
+Prompt caching do Groq foi avaliado e descartado por ora: só está disponível pra modelos GPT-OSS, que não suportam parallel tool calls (usado o tempo todo aqui — ver [`speak` intercalado com outras tools](tools-and-capabilities.md#speak-como-capability)). Trocar de modelo por causa do cache custaria mais do que economizaria.
 
 ## Executor
 
@@ -115,6 +126,17 @@ Nem tudo de uma vez, nem um passo por vez. O modelo preferido é híbrido:
 ```
 
 Planejamento antecipado quando possível. Replanejamento quando a realidade exigir.
+
+### Como o replan é sinalizado hoje
+
+Qualquer tool (server-side ou client-side) pode disparar um novo ciclo de planejamento devolvendo `session.ToolResult{NeedsReplan: true}` — não é um mecanismo exclusivo de uma tool específica. O `Executor` trata isso genericamente: assim que um step retorna `NeedsReplan: true`, ele para de executar o resto do Workflow daquele turno (qualquer step colocado depois dele **não roda**, silenciosamente — por isso o prompt do sistema instrui a sempre deixar uma tool desse tipo por último no plano).
+
+Duas tools usam isso hoje:
+
+- **`searchWeb`** dispara `NeedsReplan` sozinho, sempre — o resultado de uma busca é inútil sem o modelo reconsiderar o plano com ele em mãos.
+- **`replan`** (`internal/tools/replan.go`) não faz nada além de sinalizar isso — existe pro modelo pedir reconsideração explicitamente em casos que nenhuma outra tool cobre. Ao contrário de `speak`, `replan` tem um `Handler` normal registrado no `Registry`, então ela entra automaticamente em todo plano pelo mesmo loop genérico que adiciona qualquer tool com definição+handler — não precisa de nenhum caso especial no Planner.
+
+O resultado bruto da tool que disparou o replan **não** é persistido como mensagem de conversa — só um marcador curto (`"Executou searchWeb."`) entra no histórico permanente. O conteúdo de verdade (ex: os resultados da busca) é injetado como `extraContext` efêmero, só pro próximo `Plan` dessa mesma requisição — nunca reaparece em turnos futuros. Isso existe especificamente para não estourar o orçamento de tokens: sem isso, um resultado de busca ficaria sendo reenviado em toda chamada seguinte enquanto estivesse dentro da janela de histórico.
 
 ## Em aberto
 

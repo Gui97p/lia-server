@@ -39,7 +39,7 @@ O catálogo no Postgres elimina a necessidade de deploy só para *documentar* um
 
 ### Catálogo cobre só capabilities de client — server-side fica hardcoded
 
-O catálogo em Postgres existe **só** para capabilities que um client pode anunciar no handshake (`openApp`, `moveWindow`, etc.). Capabilities server-side (`speak`, `saveMemory`, `updateMemory`, `deleteMemory`, `searchWeb`) **não entram** no catálogo — ficam definidas em `internal/tools` (`knownCapabilities`).
+O catálogo em Postgres existe **só** para capabilities que um client pode anunciar no handshake (`openApp`, `moveWindow`, etc.). Capabilities server-side (`speak`, `saveMemory`, `updateMemory`, `deleteMemory`, `searchWeb`, `replan`) **não entram** no catálogo — ficam definidas em `internal/tools` (`KnownCapabilities`).
 
 O motivo é o mesmo que justifica o catálogo existir: o ganho de "criar capability sem deploy" só é real quando o comportamento já existe em outro lugar (o client Rust já implementa a tool, só falta o servidor descrevê-la pro LLM). Para uma tool server-side, isso nunca é verdade — ela sempre exige código Go novo (um `Handler` em `internal/tools`), então o deploy é inevitável de qualquer forma. Colocar a definição dela em Postgres não evitaria esse deploy, só criaria uma segunda fonte de verdade (definição no banco vs. implementação no Go) com risco real de divergir sem ninguém perceber.
 
@@ -93,7 +93,9 @@ Sem streaming por agora — `speak(text)` é uma chamada única, bloqueante, igu
 
 Conforme o catálogo de capabilities crescer, pode fazer sentido não injetar tudo no prompt do Planner de uma vez — descobrir capabilities relevantes sob demanda (o mesmo princípio já aplicado a memória em [MVP: injetar tudo](memory.md#mvp-injetar-tudo): injeta tudo até o volume doer, só então adiciona descoberta/filtragem). Isso não é necessário agora (poucas capabilities), mas quando existir, `speak` — e outras capabilities fundamentais a qualquer turno do Agent — não podem correr o risco de ficar de fora de um filtro de relevância.
 
-Diferente do desenho original deste documento, isso **não é uma flag no catálogo do Postgres** — já que capabilities server-side nem entram no catálogo (ver [seção acima](#catálogo-cobre-só-capabilities-de-client--server-side-fica-hardcoded)). "Ser sempre oferecida" é uma propriedade de código: o `Planner` sempre oferece ao LLM tudo que está registrado no `tools.Registry` (`internal/tools`) mais `speak` (caso especial, não passa pelo Registry por controlar o fluxo do Executor via `NeedsReplan`) — nenhum filtro futuro de relevância entra nesse caminho, porque ele nem participa da lista vinda do catálogo/handshake.
+Diferente do desenho original deste documento, isso **não é uma flag no catálogo do Postgres** — já que capabilities server-side nem entram no catálogo (ver [seção acima](#catálogo-cobre-só-capabilities-de-client--server-side-fica-hardcoded)). "Ser sempre oferecida" é uma propriedade de código: o `Planner` sempre oferece ao LLM tudo que está registrado no `tools.Registry` (`internal/tools`) mais `speak` (caso especial, não passa pelo Registry por controlar o fluxo do Executor diretamente) — nenhum filtro futuro de relevância entra nesse caminho, porque ele nem participa da lista vinda do catálogo/handshake.
+
+Vale notar a diferença entre `speak` e `replan` aqui: `replan` também sinaliza replanejamento (ver [Planner e Executor: como o replan é sinalizado hoje](planner-and-executor.md#como-o-replan-é-sinalizado-hoje)), mas ao contrário de `speak` ela **tem** um `Handler` normal registrado no `Registry` — então ela já entra automaticamente em todo plano pelo loop genérico que adiciona qualquer tool com definição+handler, sem precisar do caso especial que `speak` exige.
 
 ## Protocolo de anúncio: handshake da conexão
 

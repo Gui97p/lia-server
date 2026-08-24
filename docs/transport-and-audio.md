@@ -44,7 +44,7 @@ Resposta de sucesso: `auth.ok` com `{ "conn_id": "<uuid>" }` — identificador d
 
 Unidade de runtime = **conexão** (`ConnID`), não o user. O mesmo `userId` pode ter várias conns ativas (PC, notebook, bot, etc.).
 
-- `Session` — estado autenticado da conn: user, trust, Groq key decifrada, capabilities anunciadas, e um `Writer` para enviar eventos (a borda WS captura `conn` + mutex de escrita; o resto do sistema só vê `Session`).
+- `Session` — estado autenticado da conn: user, trust, keys de provider decifradas (`providers.Providers`, um mapa — não uma key fixa, já que o usuário pode ter Groq, Gemini, ambos ou nenhum), capabilities anunciadas, e um `Writer` para enviar eventos (a borda WS captura `conn` + mutex de escrita; o resto do sistema só vê `Session`). O handshake decifra o que existir e descarta silenciosamente qualquer key que falhe ao decifrar — só falha a autenticação se **nenhuma** key sobrar utilizável.
 - `Hub` — registry em memória `ConnID → *Session` (`Register` / `Unregister` / `FindByUser` / `FindByID`). Mutex só no mapa; não segurar durante I/O.
 - Pacote: `internal/session`. Ciclo de vida do WS (Accept → handshake → Register → loop → Unregister) fica em `internal/transport`.
 
@@ -52,7 +52,7 @@ Roteamento de tool (combinado, ainda não codificado): não é “manda pro user
 
 Timeout só no handshake (ex.: 5s); o loop da sessão não usa esse deadline.
 
-Rotas atuais do transport: `GET /health`, `GET /ws`. Rotas de áudio abaixo ainda são alvo, não implementadas.
+Rotas atuais do transport: `GET /health`, `GET /ws`, `POST /audio/transcribe`, `POST /audio/speak`.
 
 Socket.IO foi avaliado e descartado: suporte de terceiros imaturo tanto em Go (server, via `googollee/go-socket.io`, manutenção irregular) quanto em Rust (clients) — risco alto para dependência de longo prazo. WebSocket puro ganha o determinismo do event-driven que o projeto já quer, sem depender de uma lib de compatibilidade duvidosa entre as duas linguagens.
 
@@ -76,6 +76,16 @@ Microfone → VAD → Wake Word (local) → captura áudio
 ```
 
 Esse fluxo mostra um `speak` no fim, mas a fala é uma capability executada pelo Executor como qualquer outra (ver [`speak` como capability](tools-and-capabilities.md#speak-como-capability)) — pode aparecer intercalada com outras tools dentro do mesmo Workflow, não só como resposta final única.
+
+### Modo `wait` do `speak` e o evento `message.done`
+
+O servidor não sabe, por si só, quando o cliente termina de reproduzir o áudio de uma fala — `message.reply` (WS) e `POST /audio/speak` (HTTP) são desacoplados, o cliente pode pedir o áudio quando quiser. Pra o modo `wait` do `speak` (que deve bloquear o próximo step do plano até a fala terminar) funcionar de verdade, o protocolo tem um evento extra:
+
+- Todo `message.reply` carrega um `step_id`.
+- Quando o `speak` está em modo `wait`, o `Executor` bloqueia (`session.WaitForSpeechDone`) esperando o cliente mandar `message.done` com esse mesmo `step_id` — ou um fallback estimado por tamanho do texto (~15 chars/segundo, piso 1s, teto 20s), pra clients que ainda não implementam o ack real.
+- Mandar `message.done` fora desse contexto (modo `fire_and_forget`, ou um `step_id` já resolvido) é inofensivo — o server só ignora, não tem `step_id` nenhum esperando por ele.
+
+Ver o schema completo em `docs/asyncapi/asyncapi.yaml` (mensagens `messageReply`/`messageDone`).
 
 ### Wake Word
 

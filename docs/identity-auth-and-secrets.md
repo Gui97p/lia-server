@@ -55,9 +55,8 @@ A linha mais sensível é a de tools com efeito físico — merece revisão cons
 ## Modelo de dados
 
 ```sql
-users        (id, username, groq_api_key_encrypted, created_at)
-groups       (id, name, created_at)
-user_groups  (user_id, group_id)
+users        (id, username, created_at, token_version)
+providers    (user_id, provider, encrypted_key, created_at, updated_at)  -- PK (user_id, provider)
 voice_profiles (id, user_id, embedding, created_at)
 ```
 
@@ -65,9 +64,9 @@ Sem senha — ver [Sem login, tokens gerados via `lia-admin`](#sem-login-tokens-
 
 ### `groq_api_key` cifrada em repouso
 
-A API key do Groq de cada usuário é cifrada antes de ser gravada no banco — um dump do banco sozinho não deve expor as keys. Cifragem na camada da aplicação (AES-GCM) usando uma chave separada do `JWT_SECRET` (ex: `ENCRYPTION_KEY` no `.env`), não `pgcrypto` do banco — assim, mesmo com acesso ao banco, é preciso também o segredo da aplicação para decifrar.
+A API key de cada provider (Groq, Gemini, …) configurado por um usuário é cifrada antes de ser gravada no banco — um dump do banco sozinho não deve expor as keys. Cifragem na camada da aplicação (AES-GCM) usando uma chave separada do `JWT_SECRET` (ex: `ENCRYPTION_KEY` no `.env`), não `pgcrypto` do banco — assim, mesmo com acesso ao banco, é preciso também o segredo da aplicação para decifrar. As keys vivem na tabela `providers`, uma linha por `(user_id, provider)` — ver [Banco de Dados](database.md#providers-uma-linha-por-provider-não-uma-coluna-por-provider).
 
-A key **não** é embutida no payload do JWT (ver seção JWT abaixo). No handshake do WebSocket o server busca a key cifrada no banco, decifra uma vez e guarda o plaintext na `Session` da conexão (em memória de processo, só enquanto a conn vive). Threat model: dump do Postgres sozinho não basta; quem já tem RAM + `ENCRYPTION_KEY` do processo já venceu de qualquer forma. Não logar `Session` / o campo da key. Se a key for trocada via `lia-admin`, a sessão ativa pode ficar com a key antiga até reconnect (aceitável no MVP).
+Nenhuma key é embutida no payload do JWT (ver seção JWT abaixo). No handshake do WebSocket o server busca todas as keys cifradas do usuário, decifra as que existirem e guarda o plaintext (`providers.Providers`, um mapa) na `Session` da conexão (em memória de processo, só enquanto a conn vive) — uma key que falha ao decifrar é descartada silenciosamente, sem derrubar a autenticação; ela só falha de fato se **nenhuma** key sobrar utilizável. Threat model: dump do Postgres sozinho não basta; quem já tem RAM + `ENCRYPTION_KEY` do processo já venceu de qualquer forma. Não logar `Session` / o campo da key. Se uma key for trocada via `lia-admin`, a sessão ativa pode ficar com a key antiga até reconnect (aceitável no MVP).
 
 ## Gestão de usuários
 
@@ -76,7 +75,8 @@ Operações via CLI Go local — sem rota pública de registro:
 ```bash
 ./lia-admin users create --username yure
 ./lia-admin users delete --username yure
-./lia-admin users set-key --username yure --key gsk_...   # cifra antes de gravar
+./lia-admin users set-key --username yure --provider groq --key gsk_...   # cifra antes de gravar
+./lia-admin users set-key --username yure --provider groq --reset        # remove a key desse provider
 
 ./lia-admin tokens generate --username yure   # gera o JWT do usuário
 ```
