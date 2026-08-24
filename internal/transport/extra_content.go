@@ -75,7 +75,7 @@ func (s *Server) createSummary(ctx context.Context, sess *session.Session, taskI
 func (s *Server) createMemoryContext(ctx context.Context, sess *session.Session) (string, error) {
 	memoryContext := ""
 
-	globalMemories, err := s.memoriesStore.ListByScope(ctx, memories.Global, 50)
+	globalMemories, err := s.memoriesStore.ListByScope(ctx, memories.Global, 20)
 	if err != nil {
 		return memoryContext, err
 	}
@@ -91,7 +91,7 @@ func (s *Server) createMemoryContext(ctx context.Context, sess *session.Session)
 		}
 	}
 
-	userMemories, err := s.memoriesStore.ListByUser(ctx, sess.UserID, 50)
+	userMemories, err := s.memoriesStore.ListByUser(ctx, sess.UserID, 20)
 	if err != nil {
 		return memoryContext, err
 	}
