@@ -12,7 +12,7 @@ import (
 
 var SearchWebDefinition = llm.ToolDefinition{
 	Name:        "searchWeb",
-	Description: "Busca informações atualizadas na internet. Use quando o pedido depender de informação que você não sabe de cor ou que pode ter mudado (notícias, preços, eventos recentes, fatos específicos) — não use pra conversa geral ou fatos estáveis que você já sabe.",
+	Description: "Busca informações atualizadas na internet - notícias, preços, eventos recentes, fatos específicos. Não use pra conversa geral ou fatos estáveis que você já sabe.",
 	Parameters: map[string]any{
 		"type": "object",
 		"properties": map[string]any{

@@ -12,13 +12,13 @@ import (
 
 var DeleteMemoryDefinition = llm.ToolDefinition{
 	Name:        "deleteMemory",
-	Description: "Remove permanentemente uma memória existente. Use quando o usuário pedir explicitamente para esquecer algo, ou quando um fato salvo se tornou claramente inválido ou contraditório. Nunca invente um id — ele precisa ser um dos que já apareceram no contexto de memórias que você recebeu.",
+	Description: "Remove uma memória. Use se o usuário pedir pra esquecer algo, ou se o fato ficou inválido/contraditório. Nunca invente um id, use só os que já apareceram no contexto de memórias.",
 	Parameters: map[string]any{
 		"type": "object",
 		"properties": map[string]any{
 			"id": map[string]any{
 				"type":        "string",
-				"description": "ID da memória a ser removida — deve ser um dos IDs já mostrados no contexto de memórias.",
+				"description": "ID da memória, já mostrado no contexto de memórias.",
 			},
 		},
 		"required": []string{"id"},

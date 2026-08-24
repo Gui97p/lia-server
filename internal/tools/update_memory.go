@@ -12,17 +12,17 @@ import (
 
 var UpdateMemoryDefinition = llm.ToolDefinition{
 	Name:        "updateMemory",
-	Description: "Atualiza o conteúdo de uma memória já existente. Use apenas quando um fato salvo anteriormente mudou ou ficou desatualizado — nunca invente um id, ele precisa ser um dos que já apareceram no contexto de memórias que você recebeu.",
+	Description: "Atualiza uma memória existente quando o fato mudou. Nunca invente um id, use só os que já apareceram no contexto de memórias.",
 	Parameters: map[string]any{
 		"type": "object",
 		"properties": map[string]any{
 			"id": map[string]any{
 				"type":        "string",
-				"description": "ID da memória a ser atualizada — deve ser um dos IDs já mostrados no contexto de memórias.",
+				"description": "ID da memória, já mostrado no contexto de memórias.",
 			},
 			"fact": map[string]any{
 				"type":        "string",
-				"description": "Novo conteúdo do fato, substituindo o anterior por completo.",
+				"description": "Novo conteúdo do fato.",
 			},
 		},
 		"required": []string{"id", "fact"},
