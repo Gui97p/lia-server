@@ -69,7 +69,8 @@ func (e *Executor) Execute(ctx context.Context, sess *session.Session, taskID uu
 				return &executeResult, fmt.Errorf("speak step missing or invalid \"mode\" param")
 			}
 
-			if err := sess.Writer(ctx, "message.reply", session.MessageReplyPayload{Text: text}); err != nil {
+			stepID := uuid.NewString()
+			if err := sess.Writer(ctx, "message.reply", session.MessageReplyPayload{Text: text, StepID: stepID}); err != nil {
 				return &executeResult, err
 			}
 
@@ -79,7 +80,7 @@ func (e *Executor) Execute(ctx context.Context, sess *session.Session, taskID uu
 
 			switch mode {
 			case "wait":
-				// TODO: wait
+				sess.WaitForSpeechDone(ctx, stepID, estimateSpeechDuration(text))
 				executeResult.Results = append(executeResult.Results, session.ToolResult{Success: true})
 
 			default:
@@ -112,6 +113,23 @@ func (e *Executor) recordToolResult(ctx context.Context, sess *session.Session, 
 		return fmt.Errorf("failed to save tool result message: %w", err)
 	}
 	return nil
+}
+
+const (
+	speechCharsPerSecond = 15
+	minSpeechDuration    = 1 * time.Second
+	maxSpeechDuration    = 20 * time.Second
+)
+
+func estimateSpeechDuration(text string) time.Duration {
+	estimate := time.Duration(len([]rune(text))) * time.Second / speechCharsPerSecond
+	if estimate < minSpeechDuration {
+		return minSpeechDuration
+	}
+	if estimate > maxSpeechDuration {
+		return maxSpeechDuration
+	}
+	return estimate
 }
 
 func (e *Executor) executeStep(ctx context.Context, sess *session.Session, step Step) (session.ToolResult, error) {

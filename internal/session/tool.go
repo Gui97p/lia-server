@@ -8,7 +8,8 @@ import (
 )
 
 type MessageReplyPayload struct {
-	Text string `json:"text"`
+	Text   string `json:"text"`
+	StepID string `json:"step_id,omitempty"`
 }
 
 type ToolRequest struct {

@@ -22,6 +22,9 @@ type Session struct {
 
 	pendingMu sync.Mutex
 	pending   map[string]chan ToolResult
+
+	pendingSpeechMu sync.Mutex
+	pendingSpeech   map[string]chan struct{}
 }
 
 type Hub struct {

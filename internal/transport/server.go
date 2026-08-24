@@ -96,6 +96,7 @@ func New(cfg *config.Config, logger *slog.Logger, deps Deps) *http.Server {
 
 	setupMessageHandlers(s)
 	setupToolHandlers(s)
+	setupSpeechHandlers(s)
 
 	mux.HandleFunc("GET /ws", s.handleWS)
 

@@ -32,6 +32,8 @@ channels:
         $ref: "#/components/messages/message"
       toolCompleted:
         $ref: "#/components/messages/toolCompleted"
+      messageDone:
+        $ref: "#/components/messages/messageDone"
 
       # Server → Client
       error:
@@ -119,6 +121,21 @@ operations:
     messages:
       - $ref: "#/channels/~1ws/messages/toolRequest"
 
+  sendMessageDone:
+    action: send
+    channel:
+      $ref: "#/channels/~1ws"
+    summary: Avisar que a reprodução de uma fala terminou
+    description: |
+      Enviado pelo client depois de terminar de reproduzir o áudio de um `message.reply`.
+      Só é relevante quando esse `message.reply` foi gerado por um `speak` em modo `wait` —
+      nesse caso o server fica bloqueado esperando esse evento (ou um timeout estimado pelo
+      tamanho do texto, caso o client não implemente esse evento) antes de continuar o plano.
+      Enviar esse evento fora desse contexto (step_id já resolvido ou inexistente) é inofensivo,
+      o server apenas ignora.
+    messages:
+      - $ref: "#/channels/~1ws/messages/messageDone"
+
 components:
   messages:
     auth:
@@ -172,6 +189,18 @@ components:
               result: {}
               error: "application not found"
 
+    messageDone:
+      name: message.done
+      summary: "Fim da reprodução de uma fala (evento: `message.done`)"
+      payload:
+        $ref: "#/components/schemas/MessageDonePayload"
+      examples:
+        - name: Exemplo
+          payload:
+            event: message.done
+            payload:
+              step_id: "550e8400-e29b-41d4-a716-446655440000"
+
     error:
       name: error
       summary: "Erro retornado pelo server (evento: `error`)"
@@ -219,6 +248,7 @@ components:
             event: message.reply
             payload:
               text: "Abrindo o Spotify pra você."
+              step_id: "550e8400-e29b-41d4-a716-446655440000"
 
     toolRequest:
       name: tool.request
@@ -313,6 +343,25 @@ components:
               type: string
               description: Mensagem de erro se success for false
 
+    MessageDonePayload:
+      type: object
+      description: "Envelope completo: { event, payload }"
+      required:
+        - event
+        - payload
+      properties:
+        event:
+          const: message.done
+          description: Nome do evento
+        payload:
+          type: object
+          required:
+            - step_id
+          properties:
+            step_id:
+              type: string
+              description: step_id recebido no message.reply cuja reprodução terminou
+
     ErrorPayload:
       type: object
       description: "Envelope completo: { event, payload }"
@@ -388,6 +437,12 @@ components:
             text:
               type: string
               description: Resposta gerada pela Lia
+            step_id:
+              type: string
+              description: |
+                ID dessa fala. Relevante apenas quando o speak que a gerou usa modo `wait` —
+                nesse caso o client deve enviar `message.done` com esse mesmo step_id ao
+                terminar de reproduzir o áudio. Fora desse caso, pode ser ignorado.
 
     ToolRequestPayload:
       type: object
