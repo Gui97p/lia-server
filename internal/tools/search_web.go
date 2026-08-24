@@ -25,6 +25,8 @@ var SearchWebDefinition = llm.ToolDefinition{
 	},
 }
 
+const maxSearchContentLength = 400
+
 func NewSearchWebHandler(client websearch.Client) Handler {
 	return func(ctx context.Context, sess *session.Session, params map[string]any) (session.ToolResult, error) {
 		query, ok := params["query"].(string)
@@ -38,6 +40,10 @@ func NewSearchWebHandler(client websearch.Client) Handler {
 			return session.ToolResult{Success: false, Error: err.Error()}, err
 		}
 
+		for i, r := range results {
+			results[i].Content = truncate(r.Content, maxSearchContentLength)
+		}
+
 		resultJSON, err := json.Marshal(results)
 		if err != nil {
 			return session.ToolResult{Success: false, Error: err.Error()}, err
@@ -45,4 +51,12 @@ func NewSearchWebHandler(client websearch.Client) Handler {
 
 		return session.ToolResult{Success: true, Result: resultJSON, NeedsReplan: true}, nil
 	}
+}
+
+func truncate(s string, max int) string {
+	runes := []rune(s)
+	if len(runes) <= max {
+		return s
+	}
+	return string(runes[:max]) + "..."
 }
