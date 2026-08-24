@@ -133,6 +133,7 @@ func (s *Server) handleMessage(ctx context.Context, sess *session.Session, paylo
 		if err != nil {
 			return err
 		}
+		extraContext = joinSections(extraContext, buildToolResultContext(execResult.Results))
 	}
 
 	if err := s.tasksStore.SetState(ctx, task.ID, tasks.Failed); err != nil {

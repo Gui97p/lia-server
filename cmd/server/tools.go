@@ -9,6 +9,7 @@ import (
 
 func newToolRegistry(cfg *config.Config, memoriesStore memories.Store) *tools.Registry {
 	toolRegistry := tools.NewRegistry()
+	toolRegistry.Register("replan", tools.NewReplanHandler())
 	toolRegistry.Register("saveMemory", tools.NewSaveMemoryHandler(memoriesStore))
 	toolRegistry.Register("updateMemory", tools.NewUpdateMemoryHandler(memoriesStore))
 	toolRegistry.Register("deleteMemory", tools.NewDeleteMemoryHandler(memoriesStore))

@@ -50,10 +50,11 @@ func (e *Executor) Execute(ctx context.Context, sess *session.Session, taskID uu
 			if !result.Success {
 				return &executeResult, fmt.Errorf("capability %q reported failure: %s", step.Capability, result.Error)
 			}
+			result.Capability = step.Capability
 			executeResult.Results = append(executeResult.Results, result)
 
 			if result.NeedsReplan {
-				if err := e.recordToolResult(ctx, sess, taskID, step.Capability, result); err != nil {
+				if err := e.recordToolResult(ctx, sess, taskID, step.Capability); err != nil {
 					return &executeResult, err
 				}
 				executeResult.NeedsReplan = true
@@ -81,11 +82,6 @@ func (e *Executor) Execute(ctx context.Context, sess *session.Session, taskID uu
 				// TODO: wait
 				executeResult.Results = append(executeResult.Results, session.ToolResult{Success: true})
 
-			case "wait_and_replan":
-				// TODO: wait
-				executeResult.NeedsReplan = true
-				executeResult.Results = append(executeResult.Results, session.ToolResult{Success: true})
-				continue
 			default:
 				// treated as fire_and_forget
 				executeResult.Results = append(executeResult.Results, session.ToolResult{Success: true})
@@ -95,10 +91,11 @@ func (e *Executor) Execute(ctx context.Context, sess *session.Session, taskID uu
 			if err != nil {
 				return &executeResult, err
 			}
+			result.Capability = step.Capability
 			executeResult.Results = append(executeResult.Results, result)
 
 			if result.NeedsReplan {
-				if err := e.recordToolResult(ctx, sess, taskID, step.Capability, result); err != nil {
+				if err := e.recordToolResult(ctx, sess, taskID, step.Capability); err != nil {
 					return &executeResult, err
 				}
 				executeResult.NeedsReplan = true
@@ -109,8 +106,8 @@ func (e *Executor) Execute(ctx context.Context, sess *session.Session, taskID uu
 	return &executeResult, nil
 }
 
-func (e *Executor) recordToolResult(ctx context.Context, sess *session.Session, taskID uuid.UUID, capability string, result session.ToolResult) error {
-	content := fmt.Sprintf("Resultado de %s: %s", capability, result.Result)
+func (e *Executor) recordToolResult(ctx context.Context, sess *session.Session, taskID uuid.UUID, capability string) error {
+	content := fmt.Sprintf("Executou %s.", capability)
 	if _, err := e.messagesStore.Create(ctx, sess.UserID, "assistant", content, taskID); err != nil {
 		return fmt.Errorf("failed to save tool result message: %w", err)
 	}

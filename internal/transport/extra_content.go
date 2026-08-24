@@ -29,6 +29,17 @@ func (s *Server) buildExtraContext(ctx context.Context, sess *session.Session, t
 	return joinSections(summary, memoryContext, behaviorRulesContext), nil
 }
 
+func buildToolResultContext(results []session.ToolResult) string {
+	var context strings.Builder
+	for _, r := range results {
+		if len(r.Result) == 0 {
+			continue
+		}
+		fmt.Fprintf(&context, "Resultado de %s: %s\n", r.Capability, r.Result)
+	}
+	return context.String()
+}
+
 func joinSections(sections ...string) string {
 	nonEmpty := make([]string, 0, len(sections))
 	for _, section := range sections {

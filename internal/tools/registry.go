@@ -15,6 +15,7 @@ var KnownCapabilities = map[string]llm.ToolDefinition{
 	"updateMemory": UpdateMemoryDefinition,
 	"deleteMemory": DeleteMemoryDefinition,
 	"searchWeb":    SearchWebDefinition,
+	"replan":       ReplanDefinition,
 }
 
 type Registry struct {

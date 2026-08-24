@@ -22,6 +22,7 @@ type ToolResult struct {
 	Result      json.RawMessage
 	Error       string
 	NeedsReplan bool
+	Capability  string
 }
 
 func (s *Session) RequestTool(ctx context.Context, capability string, params map[string]any) (ToolResult, error) {
