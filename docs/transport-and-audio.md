@@ -52,6 +52,25 @@ Roteamento de tool (combinado, ainda não codificado): não é “manda pro user
 
 Timeout só no handshake (ex.: 5s); o loop da sessão não usa esse deadline.
 
+### Client vs Device
+
+Duas coisas que hoje o handshake trata igual, mas são conceitualmente diferentes:
+
+- **Client** — quem *fala com* a Lia. Tem microfone/speaker, sessão de conversa, recebe `message.reply`. Ex: o app desktop/mobile, o cliente Rust.
+- **Device** — quem *recebe ordens* da Lia, mas nunca conversa. Ex: um ESP32 controlando uma luz/tomada. Nunca deveria receber `message`/`message.reply` — só existe pro ciclo `tool.request`/`tool.completed`.
+
+Hoje o `auth` não distingue os dois — qualquer conexão que anuncia `capabilities` é tratada como uma sessão completa. O desenho pra separar:
+
+- O handshake ganha um campo de papel (`role: "client" | "device"`), mudando como o server trata a conexão dali pra frente (Device nunca é origem de um turno de conversa).
+- Device precisa de **nome persistente**, não só `ConnID` efêmero — pra "liga a luz da sala" ser roteável pro dispositivo certo entre reconexões. Caminho preferido: um catálogo em Postgres (`devices(id, user_id, name, description)`), registrado via `lia-admin` — mesmo padrão do catálogo de capabilities (ver [Tools e Capabilities](tools-and-capabilities.md#catálogo-de-capabilities-postgres-vs-registry-em-runtime-in-memory)), o handshake só manda um `device_id` que o server resolve.
+- O `Planner` precisa saber quais devices existem — mesmo padrão já usado pra "outras tasks em andamento" (`extraContext`, mensagem de sistema separada, nunca no histórico direto): uma lista "dispositivos disponíveis: nome + capabilities" injetada por turno.
+- Roteamento pra um device nomeado usa um campo `target_device` no `Step` (ver [estrutura do Workflow](planner-and-executor.md#estrutura-do-workflow)), preenchido pelo Planner quando o usuário nomeia um device explicitamente. Sem nome e só um device com a capability → resolve sozinho. Ambíguo (dois devices, mesma capability, sem nome dito) → mesmo tratamento que `$fromStep` já tem pra zero/múltiplos resultados: falha sem retry, escala pra replanning, pode virar pergunta de desambiguação ao usuário.
+- `Hub` ganha um lookup a mais (`FindByUserAndDevice(userID, deviceName)`) — extensão pequena, não redesenho.
+
+**Server fala direto com o Device, não via um Client intermediário.** Considerado e descartado: Device parear localmente com um Client específico (ex: via Bluetooth/rede local) que repassa o comando pro server. O problema é que isso amarra a disponibilidade do device a um Client específico estar online — quebra a premissa de "qualquer Client, qualquer device" que já é central no projeto. Device conectar direto ao server (mesmo mecanismo de `Session`/`Hub`/`tool.request` que já existe pra Client, só com `role: "device"`) desacopla os dois ciclos de vida e reaproveita tudo que já está construído. Custo real: firmware do device fica um pouco mais pesado (WS+TLS num ESP32 em vez de MQTT puro), mas é caminho batido (ESPHome faz algo parecido).
+
+**Autenticação do Device**: um ESP32 não tem como digitar/guardar um fluxo de JWT com a mesma facilidade que um Client. Ideia (depende de o deploy ser mesmo via Tailscale, ver [Deploy](roadmap-and-responsibilities.md#deploy-ainda-não-decidido)): dar ao Device sua própria identidade Tailscale (chave de dispositivo, não conta de usuário) e o server confiar na conexão vir de um IP conhecido da tailnet — evita ter que gerenciar segredo de longa duração numa flash de poucos MB.
+
 Rotas atuais do transport: `GET /health`, `GET /ws`, `POST /audio/transcribe`, `POST /audio/speak`.
 
 Socket.IO foi avaliado e descartado: suporte de terceiros imaturo tanto em Go (server, via `googollee/go-socket.io`, manutenção irregular) quanto em Rust (clients) — risco alto para dependência de longo prazo. WebSocket puro ganha o determinismo do event-driven que o projeto já quer, sem depender de uma lib de compatibilidade duvidosa entre as duas linguagens.
