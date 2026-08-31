@@ -17,7 +17,8 @@ func (s *Server) handleMessageDone(ctx context.Context, sess *session.Session, p
 		return sendError(ctx, sess, "invalid payload")
 	}
 
-	sess.ResolveSpeechDone(p.StepID)
+	resolved := sess.ResolveSpeechDone(p.StepID)
+	s.logger.Info("message.done received", "step_id", p.StepID, "resolved", resolved)
 	return nil
 }
 

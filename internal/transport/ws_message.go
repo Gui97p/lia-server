@@ -56,6 +56,8 @@ func (s *Server) handleMessage(ctx context.Context, sess *session.Session, paylo
 		return sendError(ctx, sess, "failed to create task")
 	}
 
+	s.logger.Info("message received", "user_id", sess.UserID, "task_id", task.ID, "text", messagePayload.Text)
+
 	if _, err := s.messagesStore.Create(ctx, sess.UserID, "user", messagePayload.Text, task.ID); err != nil {
 		return sendError(ctx, sess, "failed to save message")
 	}
@@ -75,6 +77,8 @@ func (s *Server) handleMessage(ctx context.Context, sess *session.Session, paylo
 	}
 
 	for i := 0; i < agent.MaxPlanningIterations; i++ {
+		s.logger.Info("planning iteration", "task_id", task.ID, "iteration", i+1, "max_iterations", agent.MaxPlanningIterations)
+
 		if err := s.tasksStore.SetState(ctx, task.ID, tasks.Planning); err != nil {
 			s.logger.Warn("error on update task state", "error", err, "task_id", task.ID)
 		}
@@ -87,6 +91,7 @@ func (s *Server) handleMessage(ctx context.Context, sess *session.Session, paylo
 			return sendError(ctx, sess, "queue unavaiable, try again")
 		}
 		if result.Err != nil {
+			s.logger.Error("planning failed", "task_id", task.ID, "error", result.Err)
 			if err := s.tasksStore.SetState(ctx, task.ID, tasks.Failed); err != nil {
 				s.logger.Warn("error on update task state", "error", err, "task_id", task.ID)
 			}
@@ -111,6 +116,7 @@ func (s *Server) handleMessage(ctx context.Context, sess *session.Session, paylo
 
 		execResult, err := s.executor.Execute(ctx, sess, task.ID, result.Workflow)
 		if err != nil {
+			s.logger.Error("execution failed", "task_id", task.ID, "error", err)
 			if err := s.tasksStore.SetState(ctx, task.ID, tasks.Failed); err != nil {
 				s.logger.Warn("error on update task state", "error", err, "task_id", task.ID)
 			}
@@ -118,6 +124,7 @@ func (s *Server) handleMessage(ctx context.Context, sess *session.Session, paylo
 		}
 
 		if !execResult.NeedsReplan {
+			s.logger.Info("task completed", "task_id", task.ID)
 			if err := s.tasksStore.SetState(ctx, task.ID, tasks.Completed); err != nil {
 				s.logger.Warn("error on update task state", "error", err, "task_id", task.ID)
 			}
@@ -135,6 +142,8 @@ func (s *Server) handleMessage(ctx context.Context, sess *session.Session, paylo
 		}
 		extraContext = joinSections(extraContext, buildToolResultContext(execResult.Results))
 	}
+
+	s.logger.Warn("max planning iterations reached", "task_id", task.ID, "max_iterations", agent.MaxPlanningIterations)
 
 	if err := s.tasksStore.SetState(ctx, task.ID, tasks.Failed); err != nil {
 		s.logger.Warn("error on update task state", "error", err, "task_id", task.ID)

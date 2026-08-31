@@ -39,15 +39,28 @@ func (c *BaseRouterClient) Complete(ctx context.Context, keys providers.Provider
 		key, hasKey := keys[name]
 
 		if !hasClient || !hasKey {
+			if c.Logger != nil {
+				c.Logger.Info("router: skipping provider, not configured", "provider", name)
+			}
 			continue
 		}
 
 		if c.inCooldown(key) {
+			if c.Logger != nil {
+				c.Logger.Info("router: skipping provider, in cooldown", "provider", name)
+			}
 			continue
 		}
 
 		if name == providers.ProviderGroq && estimatedTokens > groqThreshold {
+			if c.Logger != nil {
+				c.Logger.Info("router: skipping groq, prompt too large", "estimated_tokens", estimatedTokens, "threshold", groqThreshold)
+			}
 			continue
+		}
+
+		if c.Logger != nil {
+			c.Logger.Info("router: trying provider", "provider", name)
 		}
 
 		result, err := client.Complete(ctx, key, messages, tools)
@@ -56,13 +69,22 @@ func (c *BaseRouterClient) Complete(ctx context.Context, keys providers.Provider
 		}
 
 		if errors.Is(err, ErrRateLimit) {
+			if c.Logger != nil {
+				c.Logger.Warn("router: provider rate limited, marking cooldown", "provider", name)
+			}
 			c.markCooldown(key)
 			continue
 		}
 
+		if c.Logger != nil {
+			c.Logger.Error("router: provider returned error", "provider", name, "error", err)
+		}
 		return nil, err
 	}
 
+	if c.Logger != nil {
+		c.Logger.Error("router: no provider available")
+	}
 	return nil, errors.New("no provider avaiable")
 }
 

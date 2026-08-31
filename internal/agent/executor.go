@@ -3,6 +3,7 @@ package agent
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"slices"
 	"time"
 
@@ -16,6 +17,7 @@ type Executor struct {
 	Timeout       time.Duration
 	messagesStore messages.Store
 	toolRegistry  *tools.Registry
+	logger        *slog.Logger
 }
 
 type ExecuteResult struct {
@@ -23,16 +25,27 @@ type ExecuteResult struct {
 	NeedsReplan bool
 }
 
-func NewExecutor(messagesStore messages.Store, toolRegistry *tools.Registry) *Executor {
-	return &Executor{Timeout: 30 * time.Second, messagesStore: messagesStore, toolRegistry: toolRegistry}
+func NewExecutor(messagesStore messages.Store, toolRegistry *tools.Registry, logger *slog.Logger) *Executor {
+	return &Executor{Timeout: 30 * time.Second, messagesStore: messagesStore, toolRegistry: toolRegistry, logger: logger}
 }
 
 func (e *Executor) Execute(ctx context.Context, sess *session.Session, taskID uuid.UUID, workflow *Workflow) (*ExecuteResult, error) {
 	executeResult := ExecuteResult{NeedsReplan: false}
 	executeResult.Results = make([]session.ToolResult, 0, len(workflow.Steps))
 
+	if e.logger != nil {
+		stepCaps := make([]string, 0, len(workflow.Steps))
+		for _, s := range workflow.Steps {
+			stepCaps = append(stepCaps, s.Capability)
+		}
+		e.logger.Info("executing workflow", "task_id", taskID, "steps", stepCaps)
+	}
+
 	for _, step := range workflow.Steps {
 		if executeResult.NeedsReplan {
+			if e.logger != nil {
+				e.logger.Info("skipping remaining steps, replan already triggered", "task_id", taskID, "skipped_capability", step.Capability)
+			}
 			break
 		}
 
@@ -43,17 +56,29 @@ func (e *Executor) Execute(ctx context.Context, sess *session.Session, taskID uu
 		}
 
 		if isServerTool {
+			if e.logger != nil {
+				e.logger.Info("executing server tool", "task_id", taskID, "capability", step.Capability, "params", step.Params)
+			}
 			result, err := serverHandler(ctx, sess, step.Params)
 			if err != nil {
+				if e.logger != nil {
+					e.logger.Error("server tool failed", "task_id", taskID, "capability", step.Capability, "error", err)
+				}
 				return &executeResult, fmt.Errorf("capability %q failed: %w", step.Capability, err)
 			}
 			if !result.Success {
+				if e.logger != nil {
+					e.logger.Error("server tool reported failure", "task_id", taskID, "capability", step.Capability, "error", result.Error)
+				}
 				return &executeResult, fmt.Errorf("capability %q reported failure: %s", step.Capability, result.Error)
 			}
 			result.Capability = step.Capability
 			executeResult.Results = append(executeResult.Results, result)
 
 			if result.NeedsReplan {
+				if e.logger != nil {
+					e.logger.Info("tool triggered replan", "task_id", taskID, "capability", step.Capability)
+				}
 				if err := e.recordToolResult(ctx, sess, taskID, step.Capability); err != nil {
 					return &executeResult, err
 				}
@@ -70,6 +95,9 @@ func (e *Executor) Execute(ctx context.Context, sess *session.Session, taskID uu
 			}
 
 			stepID := uuid.NewString()
+			if e.logger != nil {
+				e.logger.Info("speaking", "task_id", taskID, "mode", mode, "text", text, "step_id", stepID)
+			}
 			if err := sess.Writer(ctx, "message.reply", session.MessageReplyPayload{Text: text, StepID: stepID}); err != nil {
 				return &executeResult, err
 			}
@@ -80,7 +108,11 @@ func (e *Executor) Execute(ctx context.Context, sess *session.Session, taskID uu
 
 			switch mode {
 			case "wait":
-				sess.WaitForSpeechDone(ctx, stepID, estimateSpeechDuration(text))
+				fallback := estimateSpeechDuration(text)
+				acked := sess.WaitForSpeechDone(ctx, stepID, fallback)
+				if e.logger != nil {
+					e.logger.Info("wait for speech done finished", "task_id", taskID, "step_id", stepID, "real_ack", acked, "fallback_duration", fallback)
+				}
 				executeResult.Results = append(executeResult.Results, session.ToolResult{Success: true})
 
 			default:
@@ -88,14 +120,23 @@ func (e *Executor) Execute(ctx context.Context, sess *session.Session, taskID uu
 				executeResult.Results = append(executeResult.Results, session.ToolResult{Success: true})
 			}
 		} else {
+			if e.logger != nil {
+				e.logger.Info("executing client tool", "task_id", taskID, "capability", step.Capability, "params", step.Params)
+			}
 			result, err := e.executeStep(ctx, sess, step)
 			if err != nil {
+				if e.logger != nil {
+					e.logger.Error("client tool failed", "task_id", taskID, "capability", step.Capability, "error", err)
+				}
 				return &executeResult, err
 			}
 			result.Capability = step.Capability
 			executeResult.Results = append(executeResult.Results, result)
 
 			if result.NeedsReplan {
+				if e.logger != nil {
+					e.logger.Info("tool triggered replan", "task_id", taskID, "capability", step.Capability)
+				}
 				if err := e.recordToolResult(ctx, sess, taskID, step.Capability); err != nil {
 					return &executeResult, err
 				}

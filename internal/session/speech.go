@@ -5,7 +5,7 @@ import (
 	"time"
 )
 
-func (s *Session) WaitForSpeechDone(ctx context.Context, stepID string, fallback time.Duration) {
+func (s *Session) WaitForSpeechDone(ctx context.Context, stepID string, fallback time.Duration) bool {
 	ch := make(chan struct{}, 1)
 	s.pendingSpeechMu.Lock()
 	if s.pendingSpeech == nil {
@@ -22,8 +22,11 @@ func (s *Session) WaitForSpeechDone(ctx context.Context, stepID string, fallback
 
 	select {
 	case <-ch:
+		return true
 	case <-time.After(fallback):
+		return false
 	case <-ctx.Done():
+		return false
 	}
 }
 

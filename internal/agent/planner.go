@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 
 	"github.com/Gui97p/lia-server/internal/capabilities"
 	"github.com/Gui97p/lia-server/internal/llm"
@@ -19,10 +20,11 @@ type Planner struct {
 	RouterClient      llm.RouterClient
 	ToolRegistry      *tools.Registry
 	CapabilitiesStore capabilities.Store
+	Logger            *slog.Logger
 }
 
-func NewPlanner(routerClient llm.RouterClient, toolRegistry *tools.Registry, capabilitiesStore capabilities.Store) *Planner {
-	return &Planner{RouterClient: routerClient, ToolRegistry: toolRegistry, CapabilitiesStore: capabilitiesStore}
+func NewPlanner(routerClient llm.RouterClient, toolRegistry *tools.Registry, capabilitiesStore capabilities.Store, logger *slog.Logger) *Planner {
+	return &Planner{RouterClient: routerClient, ToolRegistry: toolRegistry, CapabilitiesStore: capabilitiesStore, Logger: logger}
 }
 
 func (p *Planner) Plan(ctx context.Context, keys providers.Providers, history []llm.Message, extraContext string, clientCapabilities []string) (*Workflow, error) {
@@ -83,9 +85,28 @@ func (p *Planner) Plan(ctx context.Context, keys providers.Providers, history []
 
 	addServerTool("speak")
 
+	if p.Logger != nil {
+		toolNames := make([]string, 0, len(toolDefs))
+		for _, t := range toolDefs {
+			toolNames = append(toolNames, t.Name)
+		}
+		p.Logger.Info("planning started", "history_messages", len(history), "extra_context_len", len(extraContext), "tools", toolNames)
+	}
+
 	result, err := p.RouterClient.Complete(ctx, keys, history, toolDefs)
 	if err != nil {
+		if p.Logger != nil {
+			p.Logger.Error("router complete failed", "error", err)
+		}
 		return nil, err
+	}
+
+	if p.Logger != nil {
+		calledTools := make([]string, 0, len(result.ToolCalls))
+		for _, c := range result.ToolCalls {
+			calledTools = append(calledTools, c.Name)
+		}
+		p.Logger.Info("model responded", "content", result.Content, "tool_calls", calledTools)
 	}
 
 	workflow := Workflow{
@@ -114,7 +135,18 @@ func (p *Planner) Plan(ctx context.Context, keys providers.Providers, history []
 	}
 
 	if len(workflow.Steps) == 0 {
+		if p.Logger != nil {
+			p.Logger.Warn("model returned an empty plan")
+		}
 		return nil, errors.New("model returned an empty plan")
+	}
+
+	if p.Logger != nil {
+		stepCaps := make([]string, 0, len(workflow.Steps))
+		for _, s := range workflow.Steps {
+			stepCaps = append(stepCaps, s.Capability)
+		}
+		p.Logger.Info("plan decided", "steps", stepCaps)
 	}
 
 	return &workflow, nil

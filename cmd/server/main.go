@@ -66,8 +66,8 @@ func main() {
 		TTSClient:         audio.NewEdgeTTSClient("pt-BR-FranciscaNeural"),
 
 		Hub:           session.NewHub(),
-		PlanningQueue: agent.NewPlanningQueue(agent.NewPlanner(newLLMRouter(logger), toolRegistry, capabilitiesStore)),
-		Executor:      agent.NewExecutor(messagesStore, toolRegistry),
+		PlanningQueue: agent.NewPlanningQueue(agent.NewPlanner(newLLMRouter(logger), toolRegistry, capabilitiesStore, logger)),
+		Executor:      agent.NewExecutor(messagesStore, toolRegistry, logger),
 	})
 
 	logger.Info("server starting", "port", cfg.Port)
