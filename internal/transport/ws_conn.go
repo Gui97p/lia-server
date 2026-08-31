@@ -156,6 +156,11 @@ func (s *Server) handleWS(w http.ResponseWriter, r *http.Request) {
 			break
 		}
 		go func(data []byte) {
+			defer func() {
+				if r := recover(); r != nil {
+					s.logger.Error("panic while dispatching message", "recovered", r, "user_id", sess.UserID)
+				}
+			}()
 			if err := s.router.dispatch(ctx, sess, data); err != nil {
 				s.logger.Error("dispatch failed", "error", err)
 			}

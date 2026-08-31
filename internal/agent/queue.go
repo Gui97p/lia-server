@@ -61,7 +61,7 @@ func (p *PlanningQueueManager) StopIfUnused(userID uuid.UUID, hub *session.Hub) 
 	}
 }
 
-func (p *PlanningQueueManager) Submit(ctx context.Context, userID uuid.UUID, keys providers.Providers, history []llm.Message, extraContext string, capabilities []string) *PlanResult {
+func (p *PlanningQueueManager) Submit(ctx context.Context, userID uuid.UUID, keys providers.Providers, history []llm.Message, extraContext string, capabilities []string) (planResult *PlanResult) {
 	p.mu.Lock()
 	ch := p.queues[userID]
 	p.mu.Unlock()
@@ -78,6 +78,12 @@ func (p *PlanningQueueManager) Submit(ctx context.Context, userID uuid.UUID, key
 		capabilities: capabilities,
 		result:       make(chan PlanResult),
 	}
+
+	defer func() {
+		if recover() != nil {
+			planResult = nil
+		}
+	}()
 
 	ch <- job
 	result := <-job.result
