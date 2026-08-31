@@ -82,6 +82,34 @@ func (s *PostgresStore) ListByTask(ctx context.Context, userID uuid.UUID, taskID
 	return ms, nil
 }
 
+func (s *PostgresStore) ListByConversation(ctx context.Context, userID uuid.UUID, conversationID uuid.UUID, limit int) ([]Message, error) {
+	rows, err := s.pool.Query(ctx,
+		`SELECT m.id, m.user_id, m.role, m.content, m.task_id, m.created_at FROM messages m
+		JOIN tasks t ON m.task_id = t.id
+		WHERE m.user_id = $2 AND t.conversation_id = $1
+		ORDER BY m.created_at DESC LIMIT $3`,
+		conversationID, userID, limit,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var ms []Message
+	for rows.Next() {
+		var m Message
+		if err := rows.Scan(&m.ID, &m.UserID, &m.Role, &m.Content, &m.TaskID, &m.CreatedAt); err != nil {
+			return nil, err
+		}
+		ms = append(ms, m)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return ms, nil
+}
+
 func (s *PostgresStore) GetFirstByTask(ctx context.Context, taskID uuid.UUID) (*Message, error) {
 	var m Message
 	err := s.pool.QueryRow(ctx,
