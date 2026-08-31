@@ -9,10 +9,18 @@ import (
 	"github.com/Gui97p/lia-server/internal/providers"
 )
 
-const maxRateLimitRetries = 3
 const DefaultCooldown = 60 * time.Second
+const RateLimitSafetyMargin = 2 * time.Second
 
 var ErrRateLimit = errors.New("rate limit reached")
+
+type RateLimitError struct {
+	RetryAfter    time.Duration
+	HasRetryAfter bool
+}
+
+func (e *RateLimitError) Error() string        { return ErrRateLimit.Error() }
+func (e *RateLimitError) Is(target error) bool { return target == ErrRateLimit }
 
 type ToolDefinition struct {
 	Name        string
@@ -43,9 +51,9 @@ type RouterClient interface {
 	Complete(ctx context.Context, keys providers.Providers, messages []Message, tools []ToolDefinition) (*CompletionResult, error)
 }
 
-func retryAfterDuration(header string) time.Duration {
+func parseRetryAfter(header string) (d time.Duration, ok bool) {
 	if seconds, err := strconv.Atoi(header); err == nil && seconds > 0 {
-		return time.Duration(seconds) * time.Second
+		return time.Duration(seconds) * time.Second, true
 	}
-	return 2 * time.Second
+	return 0, false
 }

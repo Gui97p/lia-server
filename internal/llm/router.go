@@ -69,10 +69,15 @@ func (c *BaseRouterClient) Complete(ctx context.Context, keys providers.Provider
 		}
 
 		if errors.Is(err, ErrRateLimit) {
-			if c.Logger != nil {
-				c.Logger.Warn("router: provider rate limited, marking cooldown", "provider", name)
+			cooldown := DefaultCooldown
+			var rlErr *RateLimitError
+			if errors.As(err, &rlErr) && rlErr.HasRetryAfter {
+				cooldown = rlErr.RetryAfter + RateLimitSafetyMargin
 			}
-			c.markCooldown(key)
+			if c.Logger != nil {
+				c.Logger.Warn("router: provider rate limited, marking cooldown", "provider", name, "cooldown", cooldown)
+			}
+			c.markCooldown(key, cooldown)
 			continue
 		}
 
@@ -95,11 +100,11 @@ func (c *BaseRouterClient) inCooldown(key string) bool {
 	return time.Now().Before(c.cooldowns[key])
 }
 
-func (c *BaseRouterClient) markCooldown(key string) {
+func (c *BaseRouterClient) markCooldown(key string, duration time.Duration) {
 	c.cooldownMu.Lock()
 	defer c.cooldownMu.Unlock()
 
-	c.cooldowns[key] = time.Now().Add(DefaultCooldown)
+	c.cooldowns[key] = time.Now().Add(duration)
 }
 
 func estimateTokens(messages []Message) int {

@@ -10,7 +10,6 @@ import (
 	"log/slog"
 	"net/http"
 	"strings"
-	"time"
 )
 
 type GeminiClient struct {
@@ -154,46 +153,35 @@ func (c *GeminiClient) doWithRateLimitRetry(ctx context.Context, apiKey string, 
 	client := http.Client{}
 	url := fmt.Sprintf("https://generativelanguage.googleapis.com/v1beta/models/%s:generateContent", c.Model)
 
-	for attempt := 0; ; attempt++ {
-		request, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewBuffer(requestBody))
-		if err != nil {
-			return nil, err
-		}
-		request.Header.Set("Content-type", "application/json")
-		request.Header.Set("x-goog-api-key", apiKey)
-
-		res, err := client.Do(request)
-		if err != nil {
-			return nil, err
-		}
-
-		data, err := io.ReadAll(res.Body)
-		res.Body.Close()
-		if err != nil {
-			return nil, err
-		}
-
-		if res.StatusCode == http.StatusOK {
-			return data, nil
-		}
-
-		if res.StatusCode == http.StatusTooManyRequests && attempt < maxRateLimitRetries {
-			wait := retryAfterDuration(res.Header.Get("Retry-After"))
-			if c.Logger != nil {
-				c.Logger.Warn("gemini rate limited, retrying", "attempt", attempt+1, "wait", wait, "body", string(data))
-			}
-			select {
-			case <-ctx.Done():
-				return nil, ctx.Err()
-			case <-time.After(wait):
-			}
-			continue
-		}
-
-		if res.StatusCode == http.StatusTooManyRequests {
-			return nil, ErrRateLimit
-		}
-
-		return nil, fmt.Errorf("gemini api error: status %d, body %s", res.StatusCode, data)
+	request, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewBuffer(requestBody))
+	if err != nil {
+		return nil, err
 	}
+	request.Header.Set("Content-type", "application/json")
+	request.Header.Set("x-goog-api-key", apiKey)
+
+	res, err := client.Do(request)
+	if err != nil {
+		return nil, err
+	}
+
+	data, err := io.ReadAll(res.Body)
+	res.Body.Close()
+	if err != nil {
+		return nil, err
+	}
+
+	if res.StatusCode == http.StatusOK {
+		return data, nil
+	}
+
+	if res.StatusCode == http.StatusTooManyRequests {
+		retryAfter, ok := parseRetryAfter(res.Header.Get("Retry-After"))
+		if c.Logger != nil {
+			c.Logger.Warn("gemini rate limited, failing fast", "retry_after", retryAfter, "body", string(data))
+		}
+		return nil, &RateLimitError{RetryAfter: retryAfter, HasRetryAfter: ok}
+	}
+
+	return nil, fmt.Errorf("gemini api error: status %d, body %s", res.StatusCode, data)
 }

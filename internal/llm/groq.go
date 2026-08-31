@@ -9,7 +9,6 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
-	"time"
 )
 
 const groqThreshold = 6000
@@ -143,46 +142,35 @@ func (c *GroqClient) Complete(ctx context.Context, apiKey string, messages []Mes
 func (c *GroqClient) doWithRateLimitRetry(ctx context.Context, apiKey string, requestBody []byte) ([]byte, error) {
 	client := http.Client{}
 
-	for attempt := 0; ; attempt++ {
-		request, err := http.NewRequestWithContext(ctx, "POST", "https://api.groq.com/openai/v1/chat/completions", bytes.NewBuffer(requestBody))
-		if err != nil {
-			return nil, err
-		}
-		request.Header.Set("Content-type", "application/json")
-		request.Header.Set("Authorization", fmt.Sprintf("Bearer %s", apiKey))
-
-		res, err := client.Do(request)
-		if err != nil {
-			return nil, err
-		}
-
-		data, err := io.ReadAll(res.Body)
-		res.Body.Close()
-		if err != nil {
-			return nil, err
-		}
-
-		if res.StatusCode == http.StatusOK {
-			return data, nil
-		}
-
-		if res.StatusCode == http.StatusTooManyRequests && attempt < maxRateLimitRetries {
-			wait := retryAfterDuration(res.Header.Get("Retry-After"))
-			if c.Logger != nil {
-				c.Logger.Warn("groq rate limited, retrying", "attempt", attempt+1, "wait", wait, "body", string(data))
-			}
-			select {
-			case <-ctx.Done():
-				return nil, ctx.Err()
-			case <-time.After(wait):
-			}
-			continue
-		}
-
-		if res.StatusCode == http.StatusTooManyRequests {
-			return nil, ErrRateLimit
-		}
-
-		return nil, fmt.Errorf("groq api error: status %d, body %s", res.StatusCode, data)
+	request, err := http.NewRequestWithContext(ctx, "POST", "https://api.groq.com/openai/v1/chat/completions", bytes.NewBuffer(requestBody))
+	if err != nil {
+		return nil, err
 	}
+	request.Header.Set("Content-type", "application/json")
+	request.Header.Set("Authorization", fmt.Sprintf("Bearer %s", apiKey))
+
+	res, err := client.Do(request)
+	if err != nil {
+		return nil, err
+	}
+
+	data, err := io.ReadAll(res.Body)
+	res.Body.Close()
+	if err != nil {
+		return nil, err
+	}
+
+	if res.StatusCode == http.StatusOK {
+		return data, nil
+	}
+
+	if res.StatusCode == http.StatusTooManyRequests {
+		retryAfter, ok := parseRetryAfter(res.Header.Get("Retry-After"))
+		if c.Logger != nil {
+			c.Logger.Warn("groq rate limited, failing fast so the router can fall back", "retry_after", retryAfter, "body", string(data))
+		}
+		return nil, &RateLimitError{RetryAfter: retryAfter, HasRetryAfter: ok}
+	}
+
+	return nil, fmt.Errorf("groq api error: status %d, body %s", res.StatusCode, data)
 }
