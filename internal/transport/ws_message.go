@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"slices"
 	"strings"
+	"time"
 
 	"github.com/Gui97p/lia-server/internal/agent"
 	"github.com/Gui97p/lia-server/internal/llm"
@@ -13,6 +14,8 @@ import (
 	"github.com/Gui97p/lia-server/internal/tasks"
 	"github.com/google/uuid"
 )
+
+const ConversationIdleTimeout = 30 * time.Minute
 
 type MessagePayload struct {
 	Text string `json:"text"`
@@ -22,8 +25,8 @@ type MessageAckPayload struct {
 	Ok bool `json:"ok"`
 }
 
-func (s *Server) listMessages(ctx context.Context, sess *session.Session, taskID uuid.UUID) ([]llm.Message, error) {
-	latestMessages, err := s.messagesStore.ListByTask(ctx, sess.UserID, taskID, 20)
+func (s *Server) listMessages(ctx context.Context, sess *session.Session, conversationID uuid.UUID) ([]llm.Message, error) {
+	latestMessages, err := s.messagesStore.ListByConversation(ctx, sess.UserID, conversationID, 20)
 	if err != nil {
 		return nil, sendError(ctx, sess, "failed to fetch messages")
 	}
@@ -51,12 +54,21 @@ func (s *Server) handleMessage(ctx context.Context, sess *session.Session, paylo
 		return sendError(ctx, sess, "text required")
 	}
 
-	task, err := s.tasksStore.Create(ctx, sess.UserID, tasks.User, sess.TrustLevel)
+	conversationID := uuid.New()
+	latestTask, err := s.tasksStore.LatestUserTask(ctx, sess.UserID)
+	if err != nil && err != tasks.ErrNotFound {
+		return sendError(ctx, sess, "failed to check conversation state")
+	}
+	if latestTask != nil && time.Since(latestTask.CreatedAt) < ConversationIdleTimeout {
+		conversationID = latestTask.ConversationID
+	}
+
+	task, err := s.tasksStore.Create(ctx, sess.UserID, tasks.User, sess.TrustLevel, conversationID)
 	if err != nil {
 		return sendError(ctx, sess, "failed to create task")
 	}
 
-	s.logger.Info("message received", "user_id", sess.UserID, "task_id", task.ID, "text", messagePayload.Text)
+	s.logger.Info("message received", "user_id", sess.UserID, "task_id", task.ID, "conversation_id", conversationID, "text", messagePayload.Text)
 
 	if _, err := s.messagesStore.Create(ctx, sess.UserID, "user", messagePayload.Text, task.ID); err != nil {
 		return sendError(ctx, sess, "failed to save message")
@@ -66,12 +78,12 @@ func (s *Server) handleMessage(ctx context.Context, sess *session.Session, paylo
 		return sendError(ctx, sess, "failed to send event")
 	}
 
-	messages, err := s.listMessages(ctx, sess, task.ID)
+	messages, err := s.listMessages(ctx, sess, conversationID)
 	if err != nil {
 		return err
 	}
 
-	extraContext, err := s.buildExtraContext(ctx, sess, task.ID)
+	extraContext, err := s.buildExtraContext(ctx, sess, conversationID)
 	if err != nil {
 		return err
 	}
@@ -131,12 +143,12 @@ func (s *Server) handleMessage(ctx context.Context, sess *session.Session, paylo
 			return nil
 		}
 
-		messages, err = s.listMessages(ctx, sess, task.ID)
+		messages, err = s.listMessages(ctx, sess, conversationID)
 		if err != nil {
 			return err
 		}
 
-		extraContext, err = s.buildExtraContext(ctx, sess, task.ID)
+		extraContext, err = s.buildExtraContext(ctx, sess, conversationID)
 		if err != nil {
 			return err
 		}

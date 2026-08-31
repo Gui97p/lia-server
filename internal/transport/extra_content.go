@@ -10,8 +10,8 @@ import (
 	"github.com/google/uuid"
 )
 
-func (s *Server) buildExtraContext(ctx context.Context, sess *session.Session, taskID uuid.UUID) (string, error) {
-	summary, err := s.createSummary(ctx, sess, taskID)
+func (s *Server) buildExtraContext(ctx context.Context, sess *session.Session, conversationID uuid.UUID) (string, error) {
+	summary, err := s.createSummary(ctx, sess, conversationID)
 	if err != nil {
 		return "", err
 	}
@@ -50,14 +50,14 @@ func joinSections(sections ...string) string {
 	return strings.Join(nonEmpty, "\n\n")
 }
 
-func (s *Server) createSummary(ctx context.Context, sess *session.Session, taskID uuid.UUID) (string, error) {
+func (s *Server) createSummary(ctx context.Context, sess *session.Session, conversationID uuid.UUID) (string, error) {
 	summary := ""
 	otherTasks, err := s.tasksStore.ListByUser(ctx, sess.UserID, 5)
 	if err != nil {
 		return summary, err
 	}
 	for _, t := range otherTasks {
-		if t.ID != taskID && !t.State.IsTerminal() {
+		if t.ConversationID != conversationID && !t.State.IsTerminal() {
 			firstMsg, err := s.messagesStore.GetFirstByTask(ctx, t.ID)
 			if err != nil {
 				s.logger.Warn("error on get running task first message", "error", err, "task_id", t.ID)
