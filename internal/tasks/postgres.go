@@ -3,9 +3,11 @@ package tasks
 import (
 	"context"
 	"encoding/json"
+	"errors"
 
 	"github.com/Gui97p/lia-server/internal/auth"
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -19,13 +21,13 @@ func NewPostgresStore(pool *pgxpool.Pool) *PostgresStore {
 	return &PostgresStore{pool: pool}
 }
 
-func (s *PostgresStore) Create(ctx context.Context, userID uuid.UUID, triggerType TriggerType, trustLevel auth.TrustLevel) (*Task, error) {
+func (s *PostgresStore) Create(ctx context.Context, userID uuid.UUID, triggerType TriggerType, trustLevel auth.TrustLevel, conversationID uuid.UUID) (*Task, error) {
 	var t Task
 	err := s.pool.QueryRow(ctx,
-		`INSERT INTO tasks (user_id, state, trigger_type, authorized_trust_level) VALUES ($1, $2, $3, $4) 
-			RETURNING id, user_id, state, trigger_type, authorized_trust_level, created_at, updated_at`,
-		userID, Created, triggerType, trustLevel,
-	).Scan(&t.ID, &t.UserID, &t.State, &t.TriggerType, &t.AuthorizedTrustLevel, &t.CreatedAt, &t.UpdatedAt)
+		`INSERT INTO tasks (user_id, state, trigger_type, authorized_trust_level, conversation_id) VALUES ($1, $2, $3, $4, $5)
+			RETURNING id, user_id, state, trigger_type, authorized_trust_level, conversation_id, created_at, updated_at`,
+		userID, Created, triggerType, trustLevel, conversationID,
+	).Scan(&t.ID, &t.UserID, &t.State, &t.TriggerType, &t.AuthorizedTrustLevel, &t.ConversationID, &t.CreatedAt, &t.UpdatedAt)
 	if err != nil {
 		return nil, err
 	}
@@ -33,9 +35,25 @@ func (s *PostgresStore) Create(ctx context.Context, userID uuid.UUID, triggerTyp
 	return &t, nil
 }
 
+func (s *PostgresStore) LatestUserTask(ctx context.Context, userID uuid.UUID) (*Task, error) {
+	var t Task
+	err := s.pool.QueryRow(ctx,
+		`SELECT id, user_id, state, workflow, trigger_type, authorized_trust_level, conversation_id, created_at, updated_at
+		FROM tasks WHERE user_id = $1 AND trigger_type = $2 ORDER BY created_at DESC LIMIT 1`,
+		userID, User,
+	).Scan(&t.ID, &t.UserID, &t.State, &t.Workflow, &t.TriggerType, &t.AuthorizedTrustLevel, &t.ConversationID, &t.CreatedAt, &t.UpdatedAt)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, ErrNotFound
+		}
+		return nil, err
+	}
+	return &t, nil
+}
+
 func (s *PostgresStore) ListByUser(ctx context.Context, userID uuid.UUID, limit int) ([]Task, error) {
 	rows, err := s.pool.Query(ctx,
-		`SELECT id, user_id, state, workflow, trigger_type, authorized_trust_level, created_at, updated_at FROM tasks WHERE user_id = $1 ORDER BY created_at DESC LIMIT $2`,
+		`SELECT id, user_id, state, workflow, trigger_type, authorized_trust_level, conversation_id, created_at, updated_at FROM tasks WHERE user_id = $1 ORDER BY created_at DESC LIMIT $2`,
 		userID, limit,
 	)
 	if err != nil {
@@ -46,7 +64,7 @@ func (s *PostgresStore) ListByUser(ctx context.Context, userID uuid.UUID, limit 
 	var ts []Task
 	for rows.Next() {
 		var t Task
-		if err := rows.Scan(&t.ID, &t.UserID, &t.State, &t.Workflow, &t.TriggerType, &t.AuthorizedTrustLevel, &t.CreatedAt, &t.UpdatedAt); err != nil {
+		if err := rows.Scan(&t.ID, &t.UserID, &t.State, &t.Workflow, &t.TriggerType, &t.AuthorizedTrustLevel, &t.ConversationID, &t.CreatedAt, &t.UpdatedAt); err != nil {
 			return nil, err
 		}
 		ts = append(ts, t)
@@ -61,9 +79,9 @@ func (s *PostgresStore) ListByUser(ctx context.Context, userID uuid.UUID, limit 
 func (s *PostgresStore) GetByID(ctx context.Context, taskID uuid.UUID) (*Task, error) {
 	var t Task
 	err := s.pool.QueryRow(ctx,
-		"SELECT id, user_id, state, workflow, trigger_type, authorized_trust_level, created_at, updated_at FROM tasks WHERE id = $1",
+		"SELECT id, user_id, state, workflow, trigger_type, authorized_trust_level, conversation_id, created_at, updated_at FROM tasks WHERE id = $1",
 		taskID,
-	).Scan(&t.ID, &t.UserID, &t.State, &t.Workflow, &t.TriggerType, &t.AuthorizedTrustLevel, &t.CreatedAt, &t.UpdatedAt)
+	).Scan(&t.ID, &t.UserID, &t.State, &t.Workflow, &t.TriggerType, &t.AuthorizedTrustLevel, &t.ConversationID, &t.CreatedAt, &t.UpdatedAt)
 	if err != nil {
 		return nil, err
 	}
