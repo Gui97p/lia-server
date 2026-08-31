@@ -69,11 +69,11 @@ type geminiGenerateContentResponse struct {
 }
 
 func (c *GeminiClient) Complete(ctx context.Context, apiKey string, messages []Message, tools []ToolDefinition) (*CompletionResult, error) {
-	var systemInstruction *geminiContent
+	var systemParts []string
 	contents := make([]geminiContent, 0, len(messages))
 	for _, m := range messages {
 		if m.Role == "system" {
-			systemInstruction = &geminiContent{Parts: []geminiPart{{Text: m.Content}}}
+			systemParts = append(systemParts, m.Content)
 			continue
 		}
 
@@ -82,6 +82,15 @@ func (c *GeminiClient) Complete(ctx context.Context, apiKey string, messages []M
 			role = "model"
 		}
 		contents = append(contents, geminiContent{Role: role, Parts: []geminiPart{{Text: m.Content}}})
+	}
+
+	var systemInstruction *geminiContent
+	if len(systemParts) > 0 {
+		systemInstruction = &geminiContent{Parts: []geminiPart{{Text: strings.Join(systemParts, "\n\n")}}}
+	}
+
+	if len(contents) > 0 && contents[len(contents)-1].Role == "model" {
+		contents = append(contents, geminiContent{Role: "user", Parts: []geminiPart{{Text: "Continue."}}})
 	}
 
 	var geminiTools []geminiTool
