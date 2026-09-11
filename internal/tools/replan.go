@@ -11,9 +11,15 @@ var ReplanDefinition = llm.ToolDefinition{
 	Name:        "replan",
 	Description: "Sinaliza que o plano deve retornar a você para replanejamento.",
 	Parameters: map[string]any{
-		"type":       "object",
-		"properties": map[string]any{},
-		"required":   []string{},
+		"type": "object",
+		"properties": map[string]any{
+			"reason": map[string]any{
+				"type":        []string{"string", "null"},
+				"description": "Motivo curto de estar replanejando, se fizer sentido. Use null se não houver.",
+			},
+		},
+		"required":             []string{"reason"},
+		"additionalProperties": false,
 	},
 }
 
