@@ -9,7 +9,7 @@ import (
 
 func newLLMRouter(logger *slog.Logger) llm.RouterClient {
 	providerClients := make(map[providers.ProviderName]llm.Client)
-	providerClients[providers.ProviderGroq] = llm.NewGroqClient("qwen/qwen3.6-27b", logger)
+	providerClients[providers.ProviderGroq] = llm.NewGroqClient("openai/gpt-oss-120b", logger)
 	providerClients[providers.ProviderGemini] = llm.NewGeminiClient("gemini-3.5-flash-lite", logger)
 
 	providerPriority := []providers.ProviderName{providers.ProviderGroq, providers.ProviderGemini}
