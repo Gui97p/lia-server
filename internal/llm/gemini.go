@@ -22,13 +22,16 @@ func NewGeminiClient(model string, logger *slog.Logger) *GeminiClient {
 }
 
 type geminiPart struct {
-	Text         string              `json:"text,omitempty"`
-	FunctionCall *geminiFunctionCall `json:"functionCall,omitempty"`
+	Text string `json:"text,omitempty"`
 }
 
-type geminiFunctionCall struct {
-	Name string         `json:"name"`
-	Args map[string]any `json:"args"`
+type geminiPlanStep struct {
+	Capability string         `json:"capability"`
+	Params     map[string]any `json:"params"`
+}
+
+type geminiPlan struct {
+	Steps []geminiPlanStep `json:"steps"`
 }
 
 type geminiContent struct {
@@ -36,24 +39,15 @@ type geminiContent struct {
 	Parts []geminiPart `json:"parts"`
 }
 
-type geminiFunctionDeclaration struct {
-	Name        string         `json:"name"`
-	Description string         `json:"description"`
-	Parameters  map[string]any `json:"parameters"`
-}
-
-type geminiTool struct {
-	FunctionDeclarations []geminiFunctionDeclaration `json:"functionDeclarations"`
-}
-
 type geminiGenerationConfig struct {
-	MaxOutputTokens int `json:"maxOutputTokens,omitempty"`
+	ResponseMimeType string `json:"response_mime_type"`
+	ResponseSchema   any    `json:"response_schema"`
+	MaxOutputTokens  int    `json:"maxOutputTokens,omitempty"`
 }
 
 type geminiGenerateContentRequest struct {
 	Contents          []geminiContent         `json:"contents"`
 	SystemInstruction *geminiContent          `json:"systemInstruction,omitempty"`
-	Tools             []geminiTool            `json:"tools,omitempty"`
 	GenerationConfig  *geminiGenerationConfig `json:"generationConfig,omitempty"`
 }
 
@@ -93,24 +87,14 @@ func (c *GeminiClient) Complete(ctx context.Context, apiKey string, messages []M
 		contents = append(contents, geminiContent{Role: "user", Parts: []geminiPart{{Text: "Continue."}}})
 	}
 
-	var geminiTools []geminiTool
-	if len(tools) > 0 {
-		declarations := make([]geminiFunctionDeclaration, 0, len(tools))
-		for _, t := range tools {
-			declarations = append(declarations, geminiFunctionDeclaration{
-				Name:        t.Name,
-				Description: t.Description,
-				Parameters:  t.Parameters,
-			})
-		}
-		geminiTools = []geminiTool{{FunctionDeclarations: declarations}}
-	}
-
 	requestBody, err := json.Marshal(geminiGenerateContentRequest{
 		Contents:          contents,
 		SystemInstruction: systemInstruction,
-		Tools:             geminiTools,
-		GenerationConfig:  &geminiGenerationConfig{MaxOutputTokens: 2048},
+		GenerationConfig: &geminiGenerationConfig{
+			ResponseMimeType: "application/json",
+			ResponseSchema:   ToGeminiSchema(BuildPlanSchema(tools)),
+			MaxOutputTokens:  2048,
+		},
 	})
 	if err != nil {
 		return nil, err
@@ -141,21 +125,21 @@ func (c *GeminiClient) Complete(ctx context.Context, apiKey string, messages []M
 		)
 	}
 
-	var toolCalls []ToolCall
-	var content strings.Builder
-	for _, p := range parts {
-		if p.FunctionCall != nil {
-			toolCalls = append(toolCalls, ToolCall{Name: p.FunctionCall.Name, Params: p.FunctionCall.Args})
-			continue
-		}
-		content.WriteString(p.Text)
+	if len(parts) == 0 {
+		return nil, errors.New("gemini returned 0 parts")
 	}
 
-	if len(toolCalls) > 0 {
-		return &CompletionResult{ToolCalls: toolCalls}, nil
+	var plan geminiPlan
+	if err := json.Unmarshal([]byte(parts[0].Text), &plan); err != nil {
+		return nil, fmt.Errorf("failed to parse plan: %w", err)
 	}
 
-	return &CompletionResult{Content: content.String()}, nil
+	toolCalls := []ToolCall{}
+	for _, step := range plan.Steps {
+		toolCalls = append(toolCalls, ToolCall{Name: step.Capability, Params: step.Params})
+	}
+
+	return &CompletionResult{Steps: toolCalls}, nil
 }
 
 func (c *GeminiClient) doWithRateLimitRetry(ctx context.Context, apiKey string, requestBody []byte) ([]byte, error) {

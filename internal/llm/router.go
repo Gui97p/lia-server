@@ -81,6 +81,13 @@ func (c *BaseRouterClient) Complete(ctx context.Context, keys providers.Provider
 			continue
 		}
 
+		if errors.Is(err, ErrGenerationFailed) {
+			if c.Logger != nil {
+				c.Logger.Warn("router: provider failed to generate a valid plan, trying next provider", "provider", name)
+			}
+			continue
+		}
+
 		if c.Logger != nil {
 			c.Logger.Error("router: provider returned error", "provider", name, "error", err)
 		}

@@ -22,39 +22,19 @@ func NewGroqClient(model string, logger *slog.Logger) *GroqClient {
 	return &GroqClient{Model: model, Logger: logger}
 }
 
-type groqFunctionDef struct {
-	Name        string         `json:"name"`
-	Description string         `json:"description"`
-	Parameters  map[string]any `json:"parameters"`
-}
-
-type groqTool struct {
-	Type     string          `json:"type"`
-	Function groqFunctionDef `json:"function"`
-}
-
 type groqChatCompletionRequest struct {
-	Model             string     `json:"model"`
-	Messages          []Message  `json:"messages"`
-	Tools             []groqTool `json:"tools,omitempty"`
-	ParallelToolCalls bool       `json:"parallel_tool_calls"`
-	ReasoningFormat   string     `json:"reasoning_format,omitempty"`
-	ReasoningEffort   string     `json:"reasoning_effort,omitempty"`
-	MaxTokens         int        `json:"max_tokens,omitempty"`
-}
-
-type groqToolCall struct {
-	Function struct {
-		Name      string `json:"name"`
-		Arguments string `json:"arguments"`
-	} `json:"function"`
+	Model           string         `json:"model"`
+	Messages        []Message      `json:"messages"`
+	ResponseFormat  map[string]any `json:"response_format"`
+	ReasoningFormat string         `json:"reasoning_format,omitempty"`
+	ReasoningEffort string         `json:"reasoning_effort,omitempty"`
+	MaxTokens       int            `json:"max_tokens,omitempty"`
 }
 
 type groqMessage struct {
-	Role      string         `json:"role"`
-	Content   string         `json:"content"`
-	Reasoning string         `json:"reasoning,omitempty"`
-	ToolCalls []groqToolCall `json:"tool_calls,omitempty"`
+	Role      string `json:"role"`
+	Content   string `json:"content"`
+	Reasoning string `json:"reasoning,omitempty"`
 }
 
 type groqChatCompletionResponse struct {
@@ -68,27 +48,30 @@ type groqChatCompletionResponse struct {
 	} `json:"usage"`
 }
 
-func (c *GroqClient) Complete(ctx context.Context, apiKey string, messages []Message, tools []ToolDefinition) (*CompletionResult, error) {
-	groqTools := make([]groqTool, 0, len(tools))
-	for _, t := range tools {
-		groqTools = append(groqTools, groqTool{
-			Type: "function",
-			Function: groqFunctionDef{
-				Name:        t.Name,
-				Description: t.Description,
-				Parameters:  t.Parameters,
-			},
-		})
-	}
+type groqPlanStep struct {
+	Capability string         `json:"capability"`
+	Params     map[string]any `json:"params"`
+}
 
+type groqPlan struct {
+	Steps []groqPlanStep `json:"steps"`
+}
+
+func (c *GroqClient) Complete(ctx context.Context, apiKey string, messages []Message, tools []ToolDefinition) (*CompletionResult, error) {
 	requestBody, err := json.Marshal(groqChatCompletionRequest{
-		Model:             c.Model,
-		Messages:          messages,
-		Tools:             groqTools,
-		ParallelToolCalls: true,
-		ReasoningFormat:   "parsed",
-		ReasoningEffort:   "none",
-		MaxTokens:         2048,
+		Model:    c.Model,
+		Messages: messages,
+		ResponseFormat: map[string]any{
+			"type": "json_schema",
+			"json_schema": map[string]any{
+				"name":   "plan",
+				"strict": true,
+				"schema": BuildPlanSchema(tools),
+			},
+		},
+		ReasoningFormat: "parsed",
+		ReasoningEffort: "low",
+		MaxTokens:       2048,
 	})
 	if err != nil {
 		return nil, err
@@ -114,29 +97,23 @@ func (c *GroqClient) Complete(ctx context.Context, apiKey string, messages []Mes
 		c.Logger.Info("groq completion",
 			"reasoning", msg.Reasoning,
 			"content", msg.Content,
-			"tool_calls", len(msg.ToolCalls),
 			"prompt_tokens", completion.Usage.PromptTokens,
 			"completion_tokens", completion.Usage.CompletionTokens,
 			"total_tokens", completion.Usage.TotalTokens,
 		)
 	}
-	if len(msg.ToolCalls) > 0 {
-		toolCalls := make([]ToolCall, 0, len(msg.ToolCalls))
-		for _, call := range msg.ToolCalls {
-			var params map[string]any
-			if err := json.Unmarshal([]byte(call.Function.Arguments), &params); err != nil {
-				return nil, fmt.Errorf("invalid tool call arguments: %w", err)
-			}
 
-			toolCalls = append(toolCalls, ToolCall{Name: call.Function.Name, Params: params})
-		}
-
-		return &CompletionResult{
-			ToolCalls: toolCalls,
-		}, nil
+	var plan groqPlan
+	if err := json.Unmarshal([]byte(msg.Content), &plan); err != nil {
+		return nil, fmt.Errorf("failed to parse plan: %w", err)
 	}
 
-	return &CompletionResult{Content: msg.Content}, nil
+	toolCalls := []ToolCall{}
+	for _, step := range plan.Steps {
+		toolCalls = append(toolCalls, ToolCall{Name: step.Capability, Params: step.Params})
+	}
+
+	return &CompletionResult{Steps: toolCalls}, nil
 }
 
 func (c *GroqClient) doWithRateLimitRetry(ctx context.Context, apiKey string, requestBody []byte) ([]byte, error) {
@@ -170,6 +147,18 @@ func (c *GroqClient) doWithRateLimitRetry(ctx context.Context, apiKey string, re
 			c.Logger.Warn("groq rate limited, failing fast so the router can fall back", "retry_after", retryAfter, "body", string(data))
 		}
 		return nil, &RateLimitError{RetryAfter: retryAfter, HasRetryAfter: ok}
+	}
+
+	var apiErr struct {
+		Error struct {
+			Code string `json:"code"`
+		} `json:"error"`
+	}
+	if json.Unmarshal(data, &apiErr) == nil && apiErr.Error.Code == "json_validate_failed" {
+		if c.Logger != nil {
+			c.Logger.Warn("groq failed to generate a schema-matching response, falling back", "body", string(data))
+		}
+		return nil, ErrGenerationFailed
 	}
 
 	return nil, fmt.Errorf("groq api error: status %d, body %s", res.StatusCode, data)

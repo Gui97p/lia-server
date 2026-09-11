@@ -13,6 +13,7 @@ const DefaultCooldown = 60 * time.Second
 const RateLimitSafetyMargin = 2 * time.Second
 
 var ErrRateLimit = errors.New("rate limit reached")
+var ErrGenerationFailed = errors.New("provider failed to generate a schema-matching response")
 
 type RateLimitError struct {
 	RetryAfter    time.Duration
@@ -34,8 +35,7 @@ type ToolCall struct {
 }
 
 type CompletionResult struct {
-	Content   string
-	ToolCalls []ToolCall
+	Steps []ToolCall
 }
 
 type Message struct {

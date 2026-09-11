@@ -76,6 +76,41 @@ func TestBaseRouterClient_Complete(t *testing.T) {
 		}
 	})
 
+	t.Run("falls to Gemini when Groq fails to generate a valid plan, without marking cooldown", func(t *testing.T) {
+		groq := &fakeClient{err: llm.ErrGenerationFailed}
+		gemini := &fakeClient{result: &llm.CompletionResult{}}
+
+		router := llm.NewBaseRouterClient(map[providers.ProviderName]llm.Client{providers.ProviderGroq: groq, providers.ProviderGemini: gemini}, []providers.ProviderName{providers.ProviderGroq, providers.ProviderGemini}, nil)
+
+		keys := providers.Providers{
+			providers.ProviderGroq:   "fake-key",
+			providers.ProviderGemini: "fake-key2",
+		}
+
+		result, err := router.Complete(context.Background(), keys, nil, nil)
+		if err != nil {
+			t.Fatalf("error %s", err)
+		}
+		if result != gemini.result {
+			t.Fatalf("result is different from expected")
+		}
+		if groq.calls != 1 {
+			t.Fatalf("groq was called %d times", groq.calls)
+		}
+		if gemini.calls != 1 {
+			t.Fatalf("gemini was called %d times", gemini.calls)
+		}
+
+		// no cooldown expected: a second call should still try groq again
+		_, err = router.Complete(context.Background(), keys, nil, nil)
+		if err != nil {
+			t.Fatalf("error %s", err)
+		}
+		if groq.calls != 2 {
+			t.Fatalf("groq was called %d times, expected 2 (no cooldown should apply)", groq.calls)
+		}
+	})
+
 	t.Run("Groq doesn't fall into fallback", func(t *testing.T) {
 		groq := &fakeClient{err: errors.New("401 invalid key")}
 		gemini := &fakeClient{}
