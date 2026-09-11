@@ -102,35 +102,17 @@ func (p *Planner) Plan(ctx context.Context, keys providers.Providers, history []
 	}
 
 	if p.Logger != nil {
-		calledTools := make([]string, 0, len(result.ToolCalls))
-		for _, c := range result.ToolCalls {
-			calledTools = append(calledTools, c.Name)
-		}
-		p.Logger.Info("model responded", "content", result.Content, "tool_calls", calledTools)
+		p.Logger.Info("model responded", "steps", result.Steps)
 	}
 
 	workflow := Workflow{
 		Steps: make([]Step, 0),
 	}
-
-	if len(result.ToolCalls) > 0 {
-		for _, call := range result.ToolCalls {
-			workflow.Steps = append(workflow.Steps, Step{
-				ID:         uuid.NewString(),
-				Capability: call.Name,
-				Params:     call.Params,
-			})
-		}
-	}
-
-	if len(result.Content) > 0 {
+	for _, step := range result.Steps {
 		workflow.Steps = append(workflow.Steps, Step{
 			ID:         uuid.NewString(),
-			Capability: "speak",
-			Params: map[string]any{
-				"text": result.Content,
-				"mode": "fire_and_forget",
-			},
+			Capability: step.Name,
+			Params:     step.Params,
 		})
 	}
 
