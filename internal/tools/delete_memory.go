@@ -21,8 +21,7 @@ var DeleteMemoryDefinition = llm.ToolDefinition{
 				"description": "ID da memória, já mostrado no contexto de memórias.",
 			},
 		},
-		"required":             []string{"id"},
-		"additionalProperties": false,
+		"required": []string{"id"},
 	},
 }
 

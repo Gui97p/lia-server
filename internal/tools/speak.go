@@ -11,7 +11,6 @@ var SpeakDefinition = llm.ToolDefinition{
 			"text": map[string]any{"type": "string", "description": "mensagem a ser reproduzida"},
 			"mode": map[string]any{"type": "string", "description": "fire_and_forget: não espera antes do próximo passo. wait: espera a fala terminar antes do próximo passo.", "enum": []string{"fire_and_forget", "wait"}},
 		},
-		"required":             []string{"text", "mode"},
-		"additionalProperties": false,
+		"required": []string{"text", "mode"},
 	},
 }

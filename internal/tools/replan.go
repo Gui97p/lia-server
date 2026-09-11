@@ -14,12 +14,10 @@ var ReplanDefinition = llm.ToolDefinition{
 		"type": "object",
 		"properties": map[string]any{
 			"reason": map[string]any{
-				"type":        []string{"string", "null"},
-				"description": "Motivo curto de estar replanejando, se fizer sentido. Use null se não houver.",
+				"type":        "string",
+				"description": "Motivo curto de estar replanejando, se fizer sentido.",
 			},
 		},
-		"required":             []string{"reason"},
-		"additionalProperties": false,
 	},
 }
 

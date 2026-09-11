@@ -21,8 +21,7 @@ var SearchWebDefinition = llm.ToolDefinition{
 				"description": "Termos de busca, como você digitaria num motor de busca.",
 			},
 		},
-		"required":             []string{"query"},
-		"additionalProperties": false,
+		"required": []string{"query"},
 	},
 }
 

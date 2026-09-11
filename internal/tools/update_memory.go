@@ -25,8 +25,7 @@ var UpdateMemoryDefinition = llm.ToolDefinition{
 				"description": "Novo conteúdo do fato.",
 			},
 		},
-		"required":             []string{"id", "fact"},
-		"additionalProperties": false,
+		"required": []string{"id", "fact"},
 	},
 }
 

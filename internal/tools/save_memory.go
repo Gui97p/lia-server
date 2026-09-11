@@ -25,12 +25,11 @@ var SaveMemoryDefinition = llm.ToolDefinition{
 				"enum":        []string{"user", "global", "private"},
 			},
 			"category": map[string]any{
-				"type":        []string{"string", "null"},
-				"description": "Categoria curta opcional (ex: 'preferencias', 'trabalho'). Use null se não houver categoria clara.",
+				"type":        "string",
+				"description": "Categoria curta opcional (ex: 'preferencias', 'trabalho').",
 			},
 		},
-		"required":             []string{"fact", "scope", "category"},
-		"additionalProperties": false,
+		"required": []string{"fact", "scope"},
 	},
 }
 
