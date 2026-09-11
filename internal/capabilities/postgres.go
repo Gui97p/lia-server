@@ -50,7 +50,8 @@ func (s *PostgresStore) GetByName(ctx context.Context, name string) (*Capability
 func (s *PostgresStore) GetByNames(ctx context.Context, names []string) ([]Capability, error) {
 	rows, err := s.pool.Query(ctx,
 		`SELECT id, name, description, parameters, trust_level, source, created_at, updated_at FROM capabilities
-		WHERE name = ANY($1)`,
+		WHERE name = ANY($1)
+		ORDER BY name`,
 		names,
 	)
 	if err != nil {

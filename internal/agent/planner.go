@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"sort"
 
 	"github.com/Gui97p/lia-server/internal/capabilities"
 	"github.com/Gui97p/lia-server/internal/llm"
@@ -77,7 +78,13 @@ func (p *Planner) Plan(ctx context.Context, keys providers.Providers, history []
 		}
 	}
 
+	serverToolNames := make([]string, 0, len(tools.KnownCapabilities))
 	for name := range tools.KnownCapabilities {
+		serverToolNames = append(serverToolNames, name)
+	}
+	sort.Strings(serverToolNames)
+
+	for _, name := range serverToolNames {
 		if _, isServerTool := p.ToolRegistry.Get(name); isServerTool {
 			addServerTool(name)
 		}
