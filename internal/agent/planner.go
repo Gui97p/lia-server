@@ -12,7 +12,6 @@ import (
 	"github.com/Gui97p/lia-server/internal/llm"
 	"github.com/Gui97p/lia-server/internal/providers"
 	"github.com/Gui97p/lia-server/internal/tools"
-	"github.com/google/uuid"
 )
 
 var MaxPlanningIterations int = 3
@@ -117,7 +116,8 @@ func (p *Planner) Plan(ctx context.Context, keys providers.Providers, history []
 	}
 	for _, step := range result.Steps {
 		workflow.Steps = append(workflow.Steps, Step{
-			ID:         uuid.NewString(),
+			ID:         step.ID,
+			DependsOn:  step.DependsOn,
 			Capability: step.Name,
 			Params:     step.Params,
 		})
