@@ -26,6 +26,8 @@ type geminiPart struct {
 }
 
 type geminiPlanStep struct {
+	ID         string         `json:"id"`
+	DependsOn  []string       `json:"dependsOn"`
 	Capability string         `json:"capability"`
 	Params     map[string]any `json:"params"`
 }
@@ -40,8 +42,8 @@ type geminiContent struct {
 }
 
 type geminiGenerationConfig struct {
-	ResponseMimeType string `json:"response_mime_type"`
-	ResponseSchema   any    `json:"response_schema"`
+	ResponseMimeType string `json:"responseMimeType"`
+	ResponseSchema   any    `json:"responseSchema"`
 	MaxOutputTokens  int    `json:"maxOutputTokens,omitempty"`
 }
 
@@ -136,7 +138,7 @@ func (c *GeminiClient) Complete(ctx context.Context, apiKey string, messages []M
 
 	toolCalls := []ToolCall{}
 	for _, step := range plan.Steps {
-		toolCalls = append(toolCalls, ToolCall{Name: step.Capability, Params: step.Params})
+		toolCalls = append(toolCalls, ToolCall{ID: step.ID, DependsOn: step.DependsOn, Name: step.Capability, Params: step.Params})
 	}
 
 	return &CompletionResult{Steps: toolCalls}, nil

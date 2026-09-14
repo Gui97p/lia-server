@@ -49,6 +49,8 @@ type groqChatCompletionResponse struct {
 }
 
 type groqPlanStep struct {
+	ID         string         `json:"id"`
+	DependsOn  []string       `json:"dependsOn"`
 	Capability string         `json:"capability"`
 	Params     map[string]any `json:"params"`
 }
@@ -110,7 +112,7 @@ func (c *GroqClient) Complete(ctx context.Context, apiKey string, messages []Mes
 
 	toolCalls := []ToolCall{}
 	for _, step := range plan.Steps {
-		toolCalls = append(toolCalls, ToolCall{Name: step.Capability, Params: step.Params})
+		toolCalls = append(toolCalls, ToolCall{ID: step.ID, DependsOn: step.DependsOn, Name: step.Capability, Params: step.Params})
 	}
 
 	return &CompletionResult{Steps: toolCalls}, nil

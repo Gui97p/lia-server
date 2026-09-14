@@ -30,8 +30,10 @@ type ToolDefinition struct {
 }
 
 type ToolCall struct {
-	Name   string
-	Params map[string]any
+	ID        string
+	DependsOn []string
+	Name      string
+	Params    map[string]any
 }
 
 type CompletionResult struct {

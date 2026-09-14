@@ -8,10 +8,15 @@ func BuildPlanSchema(tools []ToolDefinition) map[string]any {
 		branches = append(branches, map[string]any{
 			"type": "object",
 			"properties": map[string]any{
+				"id": map[string]any{"type": "string"},
+				"dependsOn": map[string]any{
+					"type":  "array",
+					"items": map[string]any{"type": "string"},
+				},
 				"capability": map[string]any{"const": t.Name},
 				"params":     normalizeStrict(t.Parameters),
 			},
-			"required":             []string{"capability", "params"},
+			"required":             []string{"id", "dependsOn", "capability", "params"},
 			"additionalProperties": false,
 		})
 	}
