@@ -34,9 +34,54 @@ func BuildPlanSchema(tools []ToolDefinition) map[string]any {
 	}
 }
 
+func fromStepRefSchema() map[string]any {
+	return map[string]any{
+		"type": "object",
+		"properties": map[string]any{
+			"$fromStep": map[string]any{
+				"type":        "string",
+				"description": "ID (Step.ID) do step anterior cujo resultado deve ser usado aqui.",
+			},
+			"match": map[string]any{
+				"type":        "array",
+				"description": "Filtros de igualdade exata a aplicar sobre o resultado do step referenciado, se ele for uma lista. Deve resultar em exatamente 1 item; deixe vazio se o step referenciado já retorna um único resultado.",
+				"items": map[string]any{
+					"type": "object",
+					"properties": map[string]any{
+						"field": map[string]any{"type": "string"},
+						"value": map[string]any{"type": "string"},
+					},
+					"required":             []string{"field", "value"},
+					"additionalProperties": false,
+				},
+			},
+		},
+		"required":             []string{"$fromStep", "match"},
+		"additionalProperties": false,
+	}
+}
+
+func isFromStepRefMarker(v any) bool {
+	b, ok := v.(bool)
+	return ok && b
+}
+
 func normalizeStrict(node any) any {
 	switch v := node.(type) {
 	case map[string]any:
+		if isFromStepRefMarker(v["fromStepRef"]) {
+			withoutMarker := make(map[string]any, len(v))
+			for key, value := range v {
+				if key == "fromStepRef" {
+					continue
+				}
+				withoutMarker[key] = value
+			}
+			return map[string]any{
+				"anyOf": []any{normalizeStrict(withoutMarker), fromStepRefSchema()},
+			}
+		}
+
 		out := make(map[string]any, len(v))
 		for key, value := range v {
 			out[key] = normalizeStrict(value)
@@ -90,6 +135,10 @@ func makeNullable(schema any) any {
 	m, ok := schema.(map[string]any)
 	if !ok {
 		return schema
+	}
+
+	if anyOf, ok := m["anyOf"].([]any); ok {
+		return map[string]any{"anyOf": append(anyOf, map[string]any{"type": "null"})}
 	}
 
 	var types []string

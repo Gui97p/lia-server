@@ -46,6 +46,8 @@ func (e *Executor) Execute(ctx context.Context, sess *session.Session, taskID uu
 		return &executeResult, fmt.Errorf("invalid workflow: %w", err)
 	}
 
+	stepResults := make(map[string]session.ToolResult, len(orderedSteps))
+
 	for _, step := range orderedSteps {
 		if executeResult.NeedsReplan {
 			if e.logger != nil {
@@ -53,6 +55,22 @@ func (e *Executor) Execute(ctx context.Context, sess *session.Session, taskID uu
 			}
 			break
 		}
+
+		resolvedParams, err := resolveParams(step.Params, stepResults)
+		if err != nil {
+			if e.logger != nil {
+				e.logger.Warn("failed to resolve $fromStep reference, triggering replan", "task_id", taskID, "capability", step.Capability, "error", err)
+			}
+			failure := session.ToolResult{Success: false, Error: err.Error(), NeedsReplan: true, Capability: step.Capability}
+			executeResult.Results = append(executeResult.Results, failure)
+			stepResults[step.ID] = failure
+			if err := e.recordToolResult(ctx, sess, taskID, step.Capability); err != nil {
+				return &executeResult, err
+			}
+			executeResult.NeedsReplan = true
+			continue
+		}
+		step.Params = resolvedParams
 
 		serverHandler, isServerTool := e.toolRegistry.Get(step.Capability)
 
@@ -79,6 +97,7 @@ func (e *Executor) Execute(ctx context.Context, sess *session.Session, taskID uu
 			}
 			result.Capability = step.Capability
 			executeResult.Results = append(executeResult.Results, result)
+			stepResults[step.ID] = result
 
 			if result.NeedsReplan {
 				if e.logger != nil {
@@ -111,19 +130,16 @@ func (e *Executor) Execute(ctx context.Context, sess *session.Session, taskID uu
 				return &executeResult, fmt.Errorf("failed to save response message: %w", err)
 			}
 
-			switch mode {
-			case "wait":
+			speakResult := session.ToolResult{Success: true, Capability: step.Capability}
+			if mode == "wait" {
 				fallback := estimateSpeechDuration(text)
 				acked := sess.WaitForSpeechDone(ctx, stepID, fallback)
 				if e.logger != nil {
 					e.logger.Info("wait for speech done finished", "task_id", taskID, "step_id", stepID, "real_ack", acked, "fallback_duration", fallback)
 				}
-				executeResult.Results = append(executeResult.Results, session.ToolResult{Success: true})
-
-			default:
-				// treated as fire_and_forget
-				executeResult.Results = append(executeResult.Results, session.ToolResult{Success: true})
 			}
+			executeResult.Results = append(executeResult.Results, speakResult)
+			stepResults[step.ID] = speakResult
 		} else {
 			if e.logger != nil {
 				e.logger.Info("executing client tool", "task_id", taskID, "capability", step.Capability, "params", step.Params)
@@ -137,6 +153,7 @@ func (e *Executor) Execute(ctx context.Context, sess *session.Session, taskID uu
 			}
 			result.Capability = step.Capability
 			executeResult.Results = append(executeResult.Results, result)
+			stepResults[step.ID] = result
 
 			if result.NeedsReplan {
 				if e.logger != nil {
