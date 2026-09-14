@@ -41,7 +41,12 @@ func (e *Executor) Execute(ctx context.Context, sess *session.Session, taskID uu
 		e.logger.Info("executing workflow", "task_id", taskID, "steps", stepCaps)
 	}
 
-	for _, step := range workflow.Steps {
+	orderedSteps, err := topologicalSort(workflow.Steps)
+	if err != nil {
+		return &executeResult, fmt.Errorf("invalid workflow: %w", err)
+	}
+
+	for _, step := range orderedSteps {
 		if executeResult.NeedsReplan {
 			if e.logger != nil {
 				e.logger.Info("skipping remaining steps, replan already triggered", "task_id", taskID, "skipped_capability", step.Capability)
@@ -146,6 +151,65 @@ func (e *Executor) Execute(ctx context.Context, sess *session.Session, taskID uu
 	}
 
 	return &executeResult, nil
+}
+
+const (
+	done       = 1
+	inprogress = 2
+)
+
+func topologicalSort(steps []Step) ([]Step, error) {
+	stepsMap := map[string]Step{}
+
+	for _, step := range steps {
+		if _, ok := stepsMap[step.ID]; !ok {
+			stepsMap[step.ID] = step
+		} else {
+			return nil, fmt.Errorf("duplicated ID for different steps")
+		}
+	}
+	for _, step := range steps {
+		for _, dep := range step.DependsOn {
+			if _, ok := stepsMap[dep]; !ok {
+				return nil, fmt.Errorf("invalid dependency %s for step %s", dep, step.ID)
+			}
+		}
+	}
+
+	visited := map[string]int{}
+	ordered := []Step{}
+
+	var visit func(string) error
+	visit = func(id string) error {
+		if visited[id] == done {
+			return nil
+		}
+
+		if visited[id] == inprogress {
+			return fmt.Errorf("cyclic dependency")
+		}
+
+		visited[id] = inprogress
+
+		for _, dep := range stepsMap[id].DependsOn {
+			if err := visit(dep); err != nil {
+				return err
+			}
+		}
+
+		visited[id] = done
+		ordered = append(ordered, stepsMap[id])
+
+		return nil
+	}
+
+	for _, step := range steps {
+		if err := visit(step.ID); err != nil {
+			return nil, err
+		}
+	}
+
+	return ordered, nil
 }
 
 func (e *Executor) recordToolResult(ctx context.Context, sess *session.Session, taskID uuid.UUID, capability string) error {
